@@ -33,4 +33,7 @@ Gem::Specification.new do |spec|
   spec.add_dependency "que", ">= 1.0"
   spec.add_dependency "que-scheduler", ">= 4.0"
   spec.add_dependency "exception-track", ">= 0.1"
+
+  # Optional dependency for SNS transport
+  spec.add_development_dependency "aws-sdk-sns", "~> 1.0"
 end

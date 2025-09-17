@@ -3,7 +3,9 @@
 module Newshound
   class Configuration
     attr_accessor :slack_webhook_url, :slack_channel, :report_time,
-                  :exception_limit, :time_zone, :enabled
+                  :exception_limit, :time_zone, :enabled,
+                  :transport_adapter, :sns_topic_arn, :aws_region,
+                  :aws_access_key_id, :aws_secret_access_key
 
     def initialize
       @slack_webhook_url = nil
@@ -12,6 +14,11 @@ module Newshound
       @exception_limit = 4
       @time_zone = "America/New_York"
       @enabled = true
+      @transport_adapter = :slack
+      @sns_topic_arn = nil
+      @aws_region = nil
+      @aws_access_key_id = nil
+      @aws_secret_access_key = nil
     end
 
     def valid?
