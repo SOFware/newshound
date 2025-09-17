@@ -2,9 +2,17 @@
 
 module Newshound
   class ExceptionReporter
+    attr_reader :exception_source, :configuration, :time_range
+
+    def initialize(exception_source: nil, configuration: nil, time_range: 24.hours)
+      @exception_source = exception_source || (defined?(ExceptionTrack::Log) ? ExceptionTrack::Log : nil)
+      @configuration = configuration || Newshound.configuration
+      @time_range = time_range
+    end
+
     def generate_report
       return no_exceptions_block if recent_exceptions.empty?
-      
+
       [
         {
           type: "section",
@@ -24,12 +32,12 @@ module Newshound
     end
 
     def fetch_recent_exceptions
-      return [] unless defined?(ExceptionTrack::Log)
-      
-      ExceptionTrack::Log
-        .where("created_at >= ?", 24.hours.ago)
+      return [] unless exception_source
+
+      exception_source
+        .where("created_at >= ?", time_range.ago)
         .order(created_at: :desc)
-        .limit(Newshound.configuration.exception_limit)
+        .limit(configuration.exception_limit)
     end
 
     def format_exceptions
@@ -62,9 +70,11 @@ module Newshound
     end
 
     def exception_count(exception)
-      ExceptionTrack::Log
+      return 0 unless exception_source
+
+      exception_source
         .where(exception_class: exception.exception_class)
-        .where("created_at >= ?", 24.hours.ago)
+        .where("created_at >= ?", time_range.ago)
         .count
     end
 

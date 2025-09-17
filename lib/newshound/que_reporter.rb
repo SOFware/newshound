@@ -2,6 +2,13 @@
 
 module Newshound
   class QueReporter
+    attr_reader :job_source, :logger
+
+    def initialize(job_source: nil, logger: nil)
+      @job_source = job_source || (defined?(::Que::Job) ? ::Que::Job : nil)
+      @logger = logger || (defined?(Rails) ? Rails.logger : Logger.new(STDOUT))
+    end
+
     def generate_report
       [
         {
@@ -33,9 +40,9 @@ module Newshound
     end
 
     def job_counts_by_type
-      return {} unless defined?(::Que::Job)
-      
-      ::Que::Job
+      return {} unless job_source
+
+      job_source
         .group(:job_class)
         .group(:error_count)
         .count
@@ -76,16 +83,19 @@ module Newshound
     end
 
     def queue_statistics
-      return default_stats unless defined?(::Que::Job)
-      
+      return default_stats unless job_source
+
+      current_time = Time.now
+      beginning_of_day = Date.today.to_time
+
       {
-        ready: ::Que::Job.where(finished_at: nil, expired_at: nil).where("run_at <= ?", Time.current).count,
-        scheduled: ::Que::Job.where(finished_at: nil, expired_at: nil).where("run_at > ?", Time.current).count,
-        failed: ::Que::Job.where.not(error_count: 0).where(finished_at: nil).count,
-        finished_today: ::Que::Job.where("finished_at >= ?", Date.current.beginning_of_day).count
+        ready: job_source.where(finished_at: nil, expired_at: nil).where("run_at <= ?", current_time).count,
+        scheduled: job_source.where(finished_at: nil, expired_at: nil).where("run_at > ?", current_time).count,
+        failed: job_source.where.not(error_count: 0).where(finished_at: nil).count,
+        finished_today: job_source.where("finished_at >= ?", beginning_of_day).count
       }
     rescue StandardError => e
-      Rails.logger.error "Failed to fetch Que statistics: #{e.message}"
+      logger.error "Failed to fetch Que statistics: #{e.message}"
       default_stats
     end
 

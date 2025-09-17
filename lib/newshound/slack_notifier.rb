@@ -4,22 +4,28 @@ require "slack-ruby-client"
 
 module Newshound
   class SlackNotifier
-    def initialize
+    attr_reader :configuration, :logger, :webhook_client, :web_api_client
+
+    def initialize(configuration: nil, logger: nil, webhook_client: nil, web_api_client: nil)
+      @configuration = configuration || Newshound.configuration
+      @logger = logger || (defined?(Rails) ? Rails.logger : Logger.new(STDOUT))
+      @webhook_client = webhook_client
+      @web_api_client = web_api_client
       configure_slack_client
     end
 
     def post(message)
-      return unless valid_configuration?
-      
+      return unless configuration.valid?
+
       if webhook_configured?
         post_via_webhook(message)
       elsif web_api_configured?
         post_via_web_api(message)
       else
-        Rails.logger.error "Newshound: No valid Slack configuration found"
+        logger.error "Newshound: No valid Slack configuration found"
       end
     rescue StandardError => e
-      Rails.logger.error "Newshound: Failed to send Slack notification: #{e.message}"
+      logger.error "Newshound: Failed to send Slack notification: #{e.message}"
     end
 
     private
@@ -30,29 +36,23 @@ module Newshound
       end
     end
 
-    def valid_configuration?
-      return false unless Newshound.configuration.valid?
-      
-      webhook_configured? || web_api_configured?
-    end
-
     def webhook_configured?
-      Newshound.configuration.slack_webhook_url.present?
+      !configuration.slack_webhook_url.nil? && !configuration.slack_webhook_url.empty?
     end
 
     def web_api_configured?
-      ENV["SLACK_API_TOKEN"].present?
+      !ENV["SLACK_API_TOKEN"].nil? && !ENV["SLACK_API_TOKEN"].empty?
     end
 
     def post_via_webhook(message)
-      client = Slack::Incoming::Webhook.new(Newshound.configuration.slack_webhook_url)
+      client = webhook_client || Slack::Incoming::Webhook.new(configuration.slack_webhook_url)
       client.post(message)
     end
 
     def post_via_web_api(message)
-      client = Slack::Web::Client.new
+      client = web_api_client || Slack::Web::Client.new
       client.chat_postMessage(
-        channel: Newshound.configuration.slack_channel,
+        channel: configuration.slack_channel,
         blocks: message[:blocks],
         text: "Daily Newshound Report"
       )

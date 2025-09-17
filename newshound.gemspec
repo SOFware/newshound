@@ -5,12 +5,12 @@ require_relative "lib/newshound/version"
 Gem::Specification.new do |spec|
   spec.name = "newshound"
   spec.version = Newshound::VERSION
-  spec.authors = ["Your Name"]
-  spec.email = ["your.email@example.com"]
+  spec.authors = ["salbanez"]
+  spec.email = ["salbanez@example.com"]
 
   spec.summary = "Daily Slack reporter for Que jobs status and exception tracking"
   spec.description = "Newshound sniffs out exceptions and job statuses in your Rails app and reports them daily to Slack"
-  spec.homepage = "https://github.com/yourusername/newshound"
+  spec.homepage = "https://github.com/salbanez/newshound"
   spec.license = "MIT"
   spec.required_ruby_version = ">= 2.7.0"
 
@@ -33,11 +33,4 @@ Gem::Specification.new do |spec|
   spec.add_dependency "que", ">= 1.0"
   spec.add_dependency "que-scheduler", ">= 4.0"
   spec.add_dependency "exception-track", ">= 0.1"
-
-  # Development dependencies
-  spec.add_development_dependency "bundler", "~> 2.0"
-  spec.add_development_dependency "rake", "~> 13.0"
-  spec.add_development_dependency "rspec", "~> 3.0"
-  spec.add_development_dependency "rubocop", "~> 1.0"
-  spec.add_development_dependency "pg"
 end
