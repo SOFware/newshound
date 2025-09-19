@@ -4,12 +4,13 @@ module Newshound
   class Scheduler
     def self.schedule_daily_report
       return unless defined?(::Que::Scheduler)
-      
+
       config = Newshound.configuration
       return unless config.valid?
-      
-      # Schedule the job using que-scheduler
-      # This will be picked up by que-scheduler's configuration
+
+      # Note: Que-scheduler uses a YAML config file (config/que_schedule.yml)
+      # This method returns the configuration that should be added to that file
+      # or can be used to manually schedule the job
       schedule_config = {
         "newshound_daily_report" => {
           "class" => "Newshound::DailyReportJob",
@@ -18,12 +19,12 @@ module Newshound
           "args" => []
         }
       }
-      
-      # Merge with existing schedule if any
-      if defined?(::Que::Scheduler.configuration)
-        ::Que::Scheduler.configuration.merge!(schedule_config)
+
+      # Log the configuration for visibility
+      if defined?(Rails) && Rails.logger
+        Rails.logger.info "Newshound daily report scheduled for #{config.report_time} (cron: #{schedule_config['newshound_daily_report']['cron']})"
       end
-      
+
       schedule_config
     end
 
