@@ -1,187 +1,192 @@
 # Newshound 🐕
 
-A Ruby gem that sniffs out exceptions and job statuses in your Rails app and reports them daily to Slack or other notification services.
+A Ruby gem that displays real-time exceptions and job statuses in a collapsible banner for authorized users in your Rails application.
 
 ## Features
 
-- 📊 Daily Que job status reports (counts by job type, queue health)
-- 🚨 Last 4 exceptions from exception-track
-- 💬 Multiple transport options: Direct Slack or Amazon SNS
-- ⏰ Automatic daily scheduling with que-scheduler
-- 🔧 Configurable report times and limits
-- 🔄 Environment-based transport switching (SNS for production, Slack for development)
+- 🎯 **Real-time Web UI Banner** - Shows exceptions and job statuses at the top of every page
+- 🔐 **Role-Based Access** - Only visible to authorized users (developers, admins, etc.)
+- 📊 **Que Job Monitoring** - Real-time queue health and job status
+- 🚨 **Exception Tracking** - Recent exceptions from exception-track
+- 🎨 **Collapsible UI** - Clean, non-intrusive banner that expands on click
+- ⚡ **Zero Configuration** - Automatically injects into HTML responses
+- 🔧 **Highly Customizable** - Configure roles and authorization logic
 
 ## Installation
 
 Add to your Gemfile:
 
 ```ruby
-gem 'newshound', path: 'path/to/newshound'  # or from git/rubygems when published
-
-# Optional: Add AWS SDK if using SNS transport
-gem 'aws-sdk-sns', '~> 1.0'  # Only needed for SNS transport
+gem 'newshound'
 ```
 
 Then:
 
 ```bash
 bundle install
+rails generate newshound:install
 ```
+
+The generator will create `config/initializers/newshound.rb` with default configuration.
 
 ## Configuration
 
-Create an initializer `config/initializers/newshound.rb`:
-
-### Basic Configuration (Slack Direct)
+### Basic Configuration
 
 ```ruby
+# config/initializers/newshound.rb
 Newshound.configure do |config|
-  # Transport selection (optional, defaults to :slack)
-  config.transport_adapter = :slack
-
-  # Slack configuration (choose one method)
-  config.slack_webhook_url = ENV['SLACK_WEBHOOK_URL']  # Option 1: Webhook
-  # OR set ENV['SLACK_API_TOKEN'] for Web API          # Option 2: Web API
-
-  config.slack_channel = "#ops-alerts"     # Default: "#general"
-  config.report_time = "09:00"            # Default: "09:00" (24-hour format)
-  config.exception_limit = 4              # Default: 4 (last N exceptions)
-  config.time_zone = "America/New_York"   # Default: "America/New_York"
-  config.enabled = true                   # Default: true
-end
-```
-
-### Production Configuration with SNS
-
-```ruby
-Newshound.configure do |config|
-  if Rails.env.production?
-    # Use SNS in production to route through AWS
-    config.transport_adapter = :sns
-    config.sns_topic_arn = ENV['SNS_TOPIC_ARN']
-    config.aws_region = ENV['AWS_REGION'] || 'us-east-1'
-
-    # Optional: Explicit AWS credentials (uses IAM role by default)
-    config.aws_access_key_id = ENV['AWS_ACCESS_KEY_ID']
-    config.aws_secret_access_key = ENV['AWS_SECRET_ACCESS_KEY']
-  else
-    # Use direct Slack in development/staging
-    config.transport_adapter = :slack
-    config.slack_webhook_url = ENV['SLACK_WEBHOOK_URL']
-  end
-
-  # Common settings
-  config.slack_channel = "#ops-alerts"
-  config.report_time = "09:00"
-  config.exception_limit = 4
-  config.time_zone = "America/New_York"
+  # Enable or disable the banner
   config.enabled = true
+
+  # Maximum number of exceptions to show in banner
+  config.exception_limit = 10
+
+  # User roles that can view the banner
+  config.authorized_roles = [:developer, :super_user]
+
+  # Method to call to get current user (most apps use :current_user)
+  config.current_user_method = :current_user
 end
 ```
 
-## Transport Setup
+### Advanced: Custom Authorization
 
-### Slack Setup (Direct Integration)
-
-#### Option 1: Webhook URL (Simpler)
-1. Go to https://api.slack.com/apps
-2. Create a new app or select existing
-3. Enable "Incoming Webhooks"
-4. Add a new webhook for your channel
-5. Copy the webhook URL to your config
-
-#### Option 2: Web API Token (More features)
-1. Create a Slack app at https://api.slack.com/apps
-2. Add OAuth scopes: `chat:write`, `chat:write.public`
-3. Install to workspace
-4. Copy the Bot User OAuth Token
-5. Set as `ENV['SLACK_API_TOKEN']`
-
-### AWS SNS Setup (Production Routing)
-
-1. **Create SNS Topic**:
-   ```bash
-   aws sns create-topic --name newshound-notifications
-   ```
-
-2. **Subscribe Slack Webhook to Topic**:
-   ```bash
-   aws sns subscribe \
-     --topic-arn arn:aws:sns:us-east-1:123456789:newshound-notifications \
-     --protocol https \
-     --notification-endpoint YOUR_SLACK_WEBHOOK_URL
-   ```
-
-3. **Configure IAM Permissions**:
-   ```json
-   {
-     "Version": "2012-10-17",
-     "Statement": [{
-       "Effect": "Allow",
-       "Action": "sns:Publish",
-       "Resource": "arn:aws:sns:us-east-1:*:newshound-*"
-     }]
-   }
-   ```
-
-4. **Set Environment Variables**:
-   ```bash
-   export SNS_TOPIC_ARN="arn:aws:sns:us-east-1:123456789:newshound-notifications"
-   export AWS_REGION="us-east-1"
-   ```
-
-## Usage
-
-### Automatic Daily Reports
-
-If you have `que-scheduler` configured, Newshound will automatically schedule daily reports at your configured time.
-
-### Manual Reports
+If the default role-based authorization doesn't fit your needs, you can provide custom logic:
 
 ```ruby
-# Send report immediately
-Newshound.report!
+# config/initializers/newshound.rb
+Newshound.authorize_with do |controller|
+  # Your custom authorization logic
+  # Return true to show banner, false to hide
+  user = controller.current_user
+  user&.admin? || user&.developer?
+end
+```
 
-# Or via rake task
-rake newshound:report_now
+### Example Authorization Scenarios
 
-# Enqueue for background processing
-rake newshound:schedule
+```ruby
+# Only show in development
+Newshound.authorize_with do |controller|
+  Rails.env.development?
+end
 
-# Check configuration
+# Check multiple conditions
+Newshound.authorize_with do |controller|
+  user = controller.current_user
+  user.present? &&
+    (user.has_role?(:admin) || user.email.ends_with?('@yourcompany.com'))
+end
+
+# Use your existing authorization system
+Newshound.authorize_with do |controller|
+  controller.current_user&.can?(:view_newshound)
+end
+```
+
+## How It Works
+
+Newshound uses Rails middleware to automatically inject a banner into HTML responses for authorized users. The banner:
+
+1. ✅ Appears automatically on all HTML pages
+2. 🔒 Only visible to users with authorized roles
+3. 📊 Shows real-time data from your exception and job queues
+4. 🎨 Collapses to save space, expands on click
+5. 🚀 No JavaScript dependencies, pure CSS animations
+
+## Banner Content
+
+The banner displays:
+
+### Exception Section
+- Recent exceptions from exception-track
+- Exception class and message
+- Controller/action where it occurred
+- Timestamp
+- Visual indicators (🟢 all clear / 🔴 errors)
+
+### Job Queue Section
+- **Ready to Run**: Jobs waiting to execute
+- **Scheduled**: Jobs scheduled for future execution
+- **Failed**: Jobs in retry queue
+- **Completed Today**: Successfully finished jobs
+- Color-coded health status
+
+## User Requirements
+
+Your User model should have a `role` attribute that matches one of the configured `authorized_roles`. Common patterns:
+
+```ruby
+# String enum
+class User < ApplicationRecord
+  enum role: { user: 'user', developer: 'developer', admin: 'admin' }
+end
+
+# Symbol enum
+class User < ApplicationRecord
+  enum role: { user: 0, developer: 1, super_user: 2 }
+end
+
+# String column
+class User < ApplicationRecord
+  def role
+    @role ||= read_attribute(:role)&.to_sym
+  end
+end
+```
+
+If your User model uses different attribute names, you can customize the authorization logic using `Newshound.authorize_with`.
+
+## Testing
+
+### Test Reporters
+
+```bash
+# Test exception reporter
+rake newshound:test_exceptions
+
+# Test job queue reporter
+rake newshound:test_jobs
+
+# Show current configuration
 rake newshound:config
 ```
 
-### Integration with que-scheduler
+### Test in Rails Console
 
-Add to your `config/que_schedule.yml`:
-
-```yaml
-newshound_daily_report:
-  class: "Newshound::DailyReportJob"
-  cron: "0 9 * * *"  # 9:00 AM daily
-  queue: default
+```ruby
+# Check if banner would show for a specific user
+user = User.find(123)
+controller = ApplicationController.new
+controller.instance_variable_set(:@current_user, user)
+Newshound::Authorization.authorized?(controller)
+# => true or false
 ```
 
-Or let Newshound auto-configure based on your settings.
+## Troubleshooting
 
-## Report Format
+### Banner not appearing
 
-The daily report includes:
+1. **Check if enabled**: `rake newshound:config`
+2. **Verify user role**: Make sure your user has an authorized role
+3. **Check current_user method**: Ensure your app provides the configured method
+4. **Restart server**: Changes to initializers require a restart
 
-### Exception Section
-- Last 4 exceptions (configurable)
-- Exception class, message, controller/action
-- Count of same exception type in last 24 hours
-- Timestamp
+### No exceptions showing
 
-### Que Jobs Section
-- Job counts by type (success/failed/total)
-- Queue health status
-- Ready to run count
-- Scheduled jobs count
-- Failed jobs in retry queue
-- Jobs completed today
+- Ensure `exception-track` gem is installed and logging exceptions
+- Check that exceptions exist: `rake newshound:test_exceptions`
+
+### No job data
+
+- Verify Que is configured and `que_jobs` table exists
+- Check job data: `rake newshound:test_jobs`
+
+### Banner appears for wrong users
+
+- Review `authorized_roles` configuration
+- Consider using custom authorization with `Newshound.authorize_with`
 
 ## Development
 
@@ -196,30 +201,22 @@ bundle exec rubocop
 bin/console
 ```
 
-## Testing in Your App
+## Dependencies
 
-```ruby
-# In rails console
+- **Rails** >= 6.0
+- **que** >= 1.0 (for job monitoring)
+- **exception-track** >= 0.1 (for exception tracking)
 
-# Test Slack transport
-Newshound.configuration.transport_adapter = :slack
-Newshound.configuration.slack_webhook_url = "your-webhook"
-Newshound.report!  # Should post to Slack immediately
+## Upgrading from 0.1.x
 
-# Test SNS transport
-Newshound.configuration.transport_adapter = :sns
-Newshound.configuration.sns_topic_arn = "your-topic-arn"
-Newshound.report!  # Should publish to SNS
-```
+If you were using the previous Slack-based version:
 
-## Troubleshooting
+1. Remove Slack/SNS configuration from your initializer
+2. Remove `que-scheduler` if only used for Newshound
+3. Update to new configuration format (see above)
+4. Restart your Rails server
 
-- **No reports sent**: Check `rake newshound:config` to verify configuration
-- **No exceptions showing**: Ensure `exception-track` gem is installed and logging
-- **No job data**: Verify Que is configured and `que_jobs` table exists
-- **Slack not receiving**: Verify webhook URL or API token is correct
-- **SNS not publishing**: Check IAM permissions and topic ARN configuration
-- **AWS SDK errors**: Ensure `aws-sdk-sns` gem is installed when using SNS transport
+The banner will now appear automatically for authorized users instead of sending Slack notifications.
 
 ## License
 
