@@ -2,30 +2,24 @@
 
 module Newshound
   class Configuration
-    attr_accessor :slack_webhook_url, :slack_channel, :report_time,
-                  :exception_limit, :time_zone, :enabled,
-                  :transport_adapter, :sns_topic_arn, :aws_region,
-                  :aws_access_key_id, :aws_secret_access_key
+    attr_accessor :exception_limit, :enabled, :authorized_roles,
+                  :current_user_method, :authorization_block
 
     def initialize
-      @slack_webhook_url = nil
-      @slack_channel = "#general"
-      @report_time = "09:00"
-      @exception_limit = 4
-      @time_zone = "America/New_York"
+      @exception_limit = 10
       @enabled = true
-      @transport_adapter = :slack
-      @sns_topic_arn = nil
-      @aws_region = nil
-      @aws_access_key_id = nil
-      @aws_secret_access_key = nil
+      @authorized_roles = [:developer, :super_user]
+      @current_user_method = :current_user
+      @authorization_block = nil
+    end
+
+    # Allow custom authorization logic
+    def authorize_with(&block)
+      @authorization_block = block
     end
 
     def valid?
-      return false unless enabled
-      return false if slack_webhook_url.nil? || slack_webhook_url.empty?
-      
-      true
+      enabled
     end
   end
 end

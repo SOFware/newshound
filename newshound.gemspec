@@ -8,8 +8,8 @@ Gem::Specification.new do |spec|
   spec.authors = ["salbanez"]
   spec.email = ["salbanez@example.com"]
 
-  spec.summary = "Daily Slack reporter for Que jobs status and exception tracking"
-  spec.description = "Newshound sniffs out exceptions and job statuses in your Rails app and reports them daily to Slack"
+  spec.summary = "Real-time web UI banner for monitoring Que jobs and exception tracking"
+  spec.description = "Newshound displays exceptions and job statuses in a collapsible banner for authorized users in your Rails app"
   spec.homepage = "https://github.com/salbanez/newshound"
   spec.license = "MIT"
   spec.required_ruby_version = ">= 2.7.0"
@@ -29,11 +29,6 @@ Gem::Specification.new do |spec|
 
   # Runtime dependencies
   spec.add_dependency "rails", ">= 6.0"
-  spec.add_dependency "slack-ruby-client", "~> 2.0"
   spec.add_dependency "que", ">= 1.0"
-  spec.add_dependency "que-scheduler", ">= 4.0"
   spec.add_dependency "exception-track", ">= 0.1"
-
-  # Optional dependency for SNS transport
-  spec.add_development_dependency "aws-sdk-sns", "~> 1.0"
 end

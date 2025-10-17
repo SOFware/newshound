@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "rails/generators"
-require "yaml"
 
 module Newshound
   module Generators
@@ -14,62 +13,22 @@ module Newshound
         template "newshound.rb", "config/initializers/newshound.rb"
       end
 
-      def add_to_que_schedule
-        que_schedule_path = "config/que_schedule.yml"
-
-        if File.exist?(que_schedule_path)
-          say_status :info, "Adding Newshound job to #{que_schedule_path}", :blue
-
-          # Read existing YAML
-          existing_config = YAML.load_file(que_schedule_path) || {}
-
-          # Add Newshound job if not already present
-          unless existing_config.key?("Newshound::DailyReportJob")
-            # Append the configuration to the file
-            append_to_file que_schedule_path do
-              <<~YAML
-
-                # Newshound daily report job - sends exception and queue reports to Slack
-                Newshound::DailyReportJob:
-                  cron: "0 9 * * *"  # Daily at 9:00 AM - adjust as needed
-                  queue: default
-                  args: []
-              YAML
-            end
-
-            say_status :success, "Added Newshound::DailyReportJob to que_schedule.yml", :green
-          else
-            say_status :skip, "Newshound::DailyReportJob already exists in que_schedule.yml", :yellow
-          end
-        else
-          say_status :warning, "#{que_schedule_path} not found. Creating it with Newshound job.", :yellow
-          create_file que_schedule_path do
-            <<~YAML
-              # Que-scheduler configuration
-              # See https://github.com/hlascelles/que-scheduler for more information
-
-              # Newshound daily report job - sends exception and queue reports to Slack
-              Newshound::DailyReportJob:
-                cron: "0 9 * * *"  # Daily at 9:00 AM - adjust as needed
-                queue: default
-                args: []
-            YAML
-          end
-        end
-      end
-
       def display_post_install_message
         say ""
         say "===============================================================================", :green
         say "  Newshound has been successfully installed!", :green
         say ""
         say "  Next steps:", :yellow
-        say "  1. Configure your Slack webhook URL in config/initializers/newshound.rb"
-        say "  2. Adjust the report schedule in config/que_schedule.yml if needed"
-        say "  3. Restart your Rails server and Que workers"
+        say "  1. Configure authorized roles in config/initializers/newshound.rb"
+        say "  2. Make sure your User model has a role attribute (or customize authorization)"
+        say "  3. Restart your Rails server"
         say ""
-        say "  To test your configuration, run:", :cyan
-        say "    rails runner 'Newshound.report!'"
+        say "  The Newshound banner will automatically appear at the top of pages for"
+        say "  authorized users (developers and super_users by default)."
+        say ""
+        say "  To test the reporters, run:", :cyan
+        say "    rake newshound:test_exceptions"
+        say "    rake newshound:test_jobs"
         say ""
         say "  For more information, visit:", :blue
         say "    https://github.com/salbanez/newshound"
