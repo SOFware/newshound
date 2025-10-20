@@ -1,0 +1,64 @@
+name: Testing
+
+on:
+  push:
+    branches-ignore: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        version: ['3.0', '3.1', '3.2', '3.3', '3.4']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.version }}
+          bundler-cache: true
+      - name: Update Bundle
+        run: bundle check || bundle install
+      - name: Set ownership
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - name: Test with Coverage
+        run: bundle exec rake spec
+      - name: Display Coverage Summary
+        if: matrix.version == '3.4' && always()
+        run: |
+          if [ -f coverage/.last_run.json ]; then
+            echo "## Code Coverage Summary" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            coverage_percent=$(jq -r '.result.line' coverage/.last_run.json)
+            echo "**Coverage:** ${coverage_percent}%" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Coverage report not found" >> $GITHUB_STEP_SUMMARY
+          fi
+      - name: Upload Coverage Report
+        if: matrix.version == '3.4' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 30
+
+  linter:
+    name: Linter
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        version: ['3.4']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.version }}
+          bundler-cache: true
+      - run: bundle exec rubocop
