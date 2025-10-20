@@ -15,7 +15,7 @@ module Newshound
         return [status, headers, response] unless status == 200
 
         # Check authorization
-        controller = env['action_controller.instance']
+        controller = env["action_controller.instance"]
         return [status, headers, response] unless controller
         return [status, headers, response] unless Newshound::Authorization.authorized?(controller)
 
@@ -26,8 +26,8 @@ module Newshound
         new_response = inject_banner(response, banner_html)
 
         # Update Content-Length header
-        if headers['Content-Length']
-          headers['Content-Length'] = new_response.bytesize.to_s
+        if headers["Content-Length"]
+          headers["Content-Length"] = new_response.bytesize.to_s
         end
 
         [status, headers, [new_response]]
@@ -36,8 +36,8 @@ module Newshound
       private
 
       def html_response?(headers)
-        content_type = headers['Content-Type']
-        content_type && content_type.include?('text/html')
+        content_type = headers["Content-Type"]
+        content_type&.include?("text/html")
       end
 
       def inject_banner(response, banner_html)
@@ -48,7 +48,7 @@ module Newshound
       end
 
       def response_body(response)
-        body = String.new
+        body = +""
         response.each { |part| body << part }
         body
       end
@@ -275,13 +275,13 @@ module Newshound
       end
 
       def escape_html(text)
-        return String.new unless text.present?
+        return +"" unless text.present?
         text.to_s
-          .gsub('&', '&amp;')
-          .gsub('<', '&lt;')
-          .gsub('>', '&gt;')
-          .gsub('"', '&quot;')
-          .gsub("'", '&#39;')
+          .gsub("&", "&amp;")
+          .gsub("<", "&lt;")
+          .gsub(">", "&gt;")
+          .gsub('"', "&quot;")
+          .gsub("'", "&#39;")
       end
     end
   end
