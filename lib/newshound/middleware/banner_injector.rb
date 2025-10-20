@@ -48,7 +48,7 @@ module Newshound
       end
 
       def response_body(response)
-        body = ""
+        body = String.new
         response.each { |part| body << part }
         body
       end
@@ -57,8 +57,8 @@ module Newshound
         exception_reporter = Newshound::ExceptionReporter.new
         que_reporter = Newshound::QueReporter.new
 
-        exception_data = exception_reporter.report
-        job_data = que_reporter.report
+        exception_data = exception_reporter.banner_data
+        job_data = que_reporter.banner_data
 
         # Generate HTML from template
         render_banner(exception_data, job_data)
@@ -275,7 +275,7 @@ module Newshound
       end
 
       def escape_html(text)
-        return "" unless text
+        return String.new unless text.present?
         text.to_s
           .gsub('&', '&amp;')
           .gsub('<', '&lt;')
