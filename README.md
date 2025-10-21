@@ -201,6 +201,21 @@ bundle exec rubocop
 bin/console
 ```
 
+## Release Management
+
+This gem uses [Reissue](https://github.com/rails/reissue) for release management. To release a new version, perform
+the following steps as you would with any other ruby gem:
+
+```bash
+bundle exec rake bump:checksum
+```
+And then create a new release:
+```bash
+bundle exec rake release
+```
+
+The final step is to push your version bump branch, open a PR, and merge it.
+
 ## Dependencies
 
 - **Rails** >= 6.0
