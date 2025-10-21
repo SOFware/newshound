@@ -10,6 +10,10 @@ Newshound.configure do |config|
   # Default is 10
   config.exception_limit = 10
 
+  # Exception source to use for exceptions
+  # Default is :exception_track
+  config.exception_source = :exception_track # or :solid_errors
+
   # User roles that are authorized to view the Newshound banner
   # These should match the role values in your User model
   # Default is [:developer, :super_user]

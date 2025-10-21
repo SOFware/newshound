@@ -5,7 +5,7 @@ module Newshound
     attr_reader :exception_source, :configuration, :time_range
 
     def initialize(exception_source: nil, configuration: nil, time_range: 24.hours)
-      @exception_source = exception_source || (defined?(ExceptionTrack::Log) ? ExceptionTrack::Log : nil)
+      @exception_source = exception_source.is_a?(Symbol) ? Exceptions.source(exception_source) : exception_source
       @configuration = configuration || Newshound.configuration
       @time_range = time_range
     end
@@ -29,23 +29,14 @@ module Newshound
     # Returns data formatted for the banner UI
     def banner_data
       {
-        exceptions: recent_exceptions.map { |exception| format_exception_for_banner(exception) }
+        exceptions: recent_exceptions.map { |exception| exception_source.format_for_banner(exception) }
       }
     end
 
     private
 
     def recent_exceptions
-      @recent_exceptions ||= fetch_recent_exceptions
-    end
-
-    def fetch_recent_exceptions
-      return [] unless exception_source
-
-      exception_source
-        .where("created_at >= ?", time_range.ago)
-        .order(created_at: :desc)
-        .limit(configuration.exception_limit)
+      @recent_exceptions ||= exception_source.recent(time_range: time_range, limit: configuration.exception_limit)
     end
 
     def format_exceptions
@@ -54,107 +45,10 @@ module Newshound
           type: "section",
           text: {
             type: "mrkdwn",
-            text: format_exception_text(exception, index + 1)
+            text: exception_source.format_for_report(exception, index + 1)
           }
         }
       end
-    end
-
-    def format_exception_text(exception, number)
-      details = parse_exception_details(exception)
-
-      <<~TEXT
-        *#{number}. #{exception_title(exception)}*
-        • *Time:* #{exception.created_at.strftime("%I:%M %p")}
-        #{format_controller(details)}
-        #{format_message(exception, details)}
-      TEXT
-    end
-
-    def exception_title(exception)
-      if exception.respond_to?(:title) && exception.title.present?
-        exception.title
-      elsif exception.respond_to?(:exception_class) && exception.exception_class.present?
-        exception.exception_class
-      else
-        "Unknown Exception"
-      end
-    end
-
-    def parse_exception_details(exception)
-      return {} unless exception.respond_to?(:body) && exception.body.present?
-
-      JSON.parse(exception.body)
-    rescue JSON::ParserError
-      {}
-    end
-
-    def format_controller(details)
-      return +"" unless details["controller_name"] && details["action_name"]
-
-      "• *Controller:* #{details["controller_name"]}##{details["action_name"]}\n"
-    end
-
-    def format_message(exception, details = nil)
-      details ||= parse_exception_details(exception)
-
-      # Try to get message from different sources
-      message = if details["message"].present?
-        details["message"]
-      elsif exception.respond_to?(:message) && exception.message.present?
-        exception.message
-      end
-
-      return +"" unless message.present?
-
-      message = message.to_s.truncate(100)
-      "• *Message:* `#{message}`"
-    end
-
-    def exception_count(exception)
-      return 0 unless exception_source
-
-      # Use title for exception-track, exception_class for other systems
-      if exception.respond_to?(:title) && exception.title.present?
-        exception_source
-          .where(title: exception.title)
-          .where("created_at >= ?", time_range.ago)
-          .count
-      elsif exception.respond_to?(:exception_class)
-        exception_source
-          .where(exception_class: exception.exception_class)
-          .where("created_at >= ?", time_range.ago)
-          .count
-      else
-        0
-      end
-    end
-
-    def format_exception_for_banner(exception)
-      details = parse_exception_details(exception)
-
-      # Extract message
-      message = if details["message"].present?
-        details["message"].to_s
-      elsif exception.respond_to?(:message) && exception.message.present?
-        exception.message.to_s
-      else
-        +""
-      end
-
-      # Extract location
-      location = if details["controller_name"] && details["action_name"]
-        "#{details["controller_name"]}##{details["action_name"]}"
-      else
-        +""
-      end
-
-      {
-        title: exception_title(exception),
-        message: message.truncate(100),
-        location: location,
-        time: exception.created_at.strftime("%I:%M %p")
-      }
     end
 
     def no_exceptions_block

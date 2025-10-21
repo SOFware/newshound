@@ -2,6 +2,7 @@
 
 require_relative "newshound/version"
 require_relative "newshound/configuration"
+require_relative "newshound/exceptions"
 require_relative "newshound/exception_reporter"
 require_relative "newshound/que_reporter"
 require_relative "newshound/authorization"

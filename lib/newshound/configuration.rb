@@ -3,7 +3,7 @@
 module Newshound
   class Configuration
     attr_accessor :exception_limit, :enabled, :authorized_roles,
-      :current_user_method, :authorization_block
+      :current_user_method, :authorization_block, :exception_source
 
     def initialize
       @exception_limit = 10
@@ -11,6 +11,7 @@ module Newshound
       @authorized_roles = [:developer, :super_user]
       @current_user_method = :current_user
       @authorization_block = nil
+      @exception_source = :exception_track
     end
 
     # Allow custom authorization logic
