@@ -6,7 +6,7 @@ module Newshound
 
     def initialize(job_source: nil, logger: nil)
       @job_source = job_source || (defined?(::Que::Job) ? ::Que::Job : nil)
-      @logger = logger || (defined?(Rails) ? Rails.logger : Logger.new(STDOUT))
+      @logger = logger || (defined?(Rails) ? Rails.logger : Logger.new($stdout))
     end
 
     def generate_report
@@ -42,9 +42,9 @@ module Newshound
 
     def job_counts_section
       counts = job_counts_by_type
-      
+
       return no_jobs_section if counts.empty?
-      
+
       {
         type: "section",
         text: {
@@ -81,25 +81,25 @@ module Newshound
 
         hash[job_class][:total] += count
       end
-    rescue StandardError => e
+    rescue => e
       logger.error "Failed to fetch job counts: #{e.message}"
       {}
     end
 
     def format_job_counts(counts)
       lines = ["*Job Counts by Type:*"]
-      
+
       counts.each do |job_class, stats|
-        status_emoji = stats[:failed] > 0 ? "⚠️" : "✅"
+        status_emoji = (stats[:failed] > 0) ? "⚠️" : "✅"
         lines << "• #{status_emoji} *#{job_class}*: #{stats[:total]} total (#{stats[:success]} success, #{stats[:failed]} failed)"
       end
-      
+
       lines.join("\n")
     end
 
     def queue_health_section
       stats = queue_statistics
-      
+
       {
         type: "section",
         text: {
@@ -122,7 +122,7 @@ module Newshound
         failed: count_jobs("error_count > 0 AND finished_at IS NULL"),
         finished_today: count_jobs("finished_at >= #{beginning_of_day}")
       }
-    rescue StandardError => e
+    rescue => e
       logger.error "Failed to fetch Que statistics: #{e.message}"
       default_stats
     end
@@ -134,12 +134,16 @@ module Newshound
     end
 
     def default_stats
-      { ready: 0, scheduled: 0, failed: 0, finished_today: 0 }
+      {ready: 0, scheduled: 0, failed: 0, finished_today: 0}
     end
 
     def format_queue_health(stats)
-      health_emoji = stats[:failed] > 10 ? "🔴" : stats[:failed] > 5 ? "🟡" : "🟢"
-      
+      health_emoji = if stats[:failed] > 10
+        "🔴"
+      else
+        (stats[:failed] > 5) ? "🟡" : "🟢"
+      end
+
       <<~TEXT
         *Queue Health #{health_emoji}*
         • *Ready to Run:* #{stats[:ready]}

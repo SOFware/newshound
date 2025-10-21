@@ -19,9 +19,9 @@ module Newshound
           puts "Newshound Configuration:"
           puts "  Enabled: #{config.enabled}"
           puts "  Exception Limit: #{config.exception_limit}"
-          puts "  Authorized Roles: #{config.authorized_roles.join(', ')}"
+          puts "  Authorized Roles: #{config.authorized_roles.join(", ")}"
           puts "  Current User Method: #{config.current_user_method}"
-          puts "  Custom Authorization: #{config.authorization_block.present? ? 'Yes' : 'No'}"
+          puts "  Custom Authorization: #{config.authorization_block.present? ? "Yes" : "No"}"
         end
 
         desc "Test exception reporter"

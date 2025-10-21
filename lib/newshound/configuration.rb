@@ -3,7 +3,7 @@
 module Newshound
   class Configuration
     attr_accessor :exception_limit, :enabled, :authorized_roles,
-                  :current_user_method, :authorization_block
+      :current_user_method, :authorization_block
 
     def initialize
       @exception_limit = 10

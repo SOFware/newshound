@@ -65,7 +65,7 @@ module Newshound
 
       <<~TEXT
         *#{number}. #{exception_title(exception)}*
-        • *Time:* #{exception.created_at.strftime('%I:%M %p')}
+        • *Time:* #{exception.created_at.strftime("%I:%M %p")}
         #{format_controller(details)}
         #{format_message(exception, details)}
       TEXT
@@ -90,9 +90,9 @@ module Newshound
     end
 
     def format_controller(details)
-      return String.new unless details["controller_name"] && details["action_name"]
+      return +"" unless details["controller_name"] && details["action_name"]
 
-      "• *Controller:* #{details['controller_name']}##{details['action_name']}\n"
+      "• *Controller:* #{details["controller_name"]}##{details["action_name"]}\n"
     end
 
     def format_message(exception, details = nil)
@@ -105,7 +105,7 @@ module Newshound
         exception.message
       end
 
-      return String.new unless message.present?
+      return +"" unless message.present?
 
       message = message.to_s.truncate(100)
       "• *Message:* `#{message}`"
@@ -139,21 +139,21 @@ module Newshound
       elsif exception.respond_to?(:message) && exception.message.present?
         exception.message.to_s
       else
-        String.new
+        +""
       end
 
       # Extract location
       location = if details["controller_name"] && details["action_name"]
-        "#{details['controller_name']}##{details['action_name']}"
+        "#{details["controller_name"]}##{details["action_name"]}"
       else
-        String.new
+        +""
       end
 
       {
         title: exception_title(exception),
         message: message.truncate(100),
         location: location,
-        time: exception.created_at.strftime('%I:%M %p')
+        time: exception.created_at.strftime("%I:%M %p")
       }
     end
 

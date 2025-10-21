@@ -2,31 +2,26 @@
 
 RSpec.describe Newshound::QueReporter do
   let(:job_source) { double("job_source") }
-  let(:logger) { double("logger") }
+  let(:logger) { double("logger", error: nil) }
+  let(:connection) { double("connection") }
 
   subject(:reporter) { described_class.new(job_source: job_source, logger: logger) }
+
+  before do
+    # Mock ActiveRecord::Base.connection
+    stub_const("ActiveRecord::Base", double("ActiveRecord::Base"))
+    allow(ActiveRecord::Base).to receive(:connection).and_return(connection)
+  end
 
   describe "#generate_report" do
     context "when no jobs are present" do
       before do
-        allow(job_source).to receive(:group).and_return(double(group: double(count: {})))
+        # Mock job_counts_by_type query
+        allow(connection).to receive(:execute).and_return([])
 
-        unfinished_mock = double("unfinished")
-        allow(job_source).to receive(:where).with(finished_at: nil, expired_at: nil).and_return(unfinished_mock)
-        allow(unfinished_mock).to receive(:where).with("run_at <= ?", anything).and_return(double(count: 0))
-        allow(unfinished_mock).to receive(:where).with("run_at > ?", anything).and_return(double(count: 0))
-
-        allow(job_source).to receive(:where).with(no_args).and_return(
-          double("all").tap do |d|
-            allow(d).to receive(:not).with(error_count: 0).and_return(
-              double("with_errors").tap do |e|
-                allow(e).to receive(:where).with(finished_at: nil).and_return(double(count: 0))
-              end
-            )
-          end
-        )
-
-        allow(job_source).to receive(:where).with("finished_at >= ?", anything).and_return(double(count: 0))
+        # Mock queue_statistics queries
+        allow(connection).to receive(:quote).and_return("'mocked_time'")
+        allow(connection).to receive(:select_value).and_return(0)
       end
 
       it "returns a report with no jobs message" do
@@ -43,44 +38,18 @@ RSpec.describe Newshound::QueReporter do
     end
 
     context "when jobs are present" do
-      let(:job_counts) do
-        {
-          ["ProcessEmailJob", 0] => 5,
-          ["ProcessEmailJob", 3] => 2,
-          ["SendNotificationJob", 0] => 10
-        }
-      end
-
       before do
-        job_group_mock = double("job_group")
-        allow(job_source).to receive(:group).with(:job_class).and_return(job_group_mock)
-        allow(job_group_mock).to receive(:group).with(:error_count).and_return(double(count: job_counts))
+        # Mock job_counts_by_type query - return rows like database would
+        job_rows = [
+          {"job_class" => "ProcessEmailJob", "error_count" => "0", "count" => "5"},
+          {"job_class" => "ProcessEmailJob", "error_count" => "3", "count" => "2"},
+          {"job_class" => "SendNotificationJob", "error_count" => "0", "count" => "10"}
+        ]
+        allow(connection).to receive(:execute).and_return(job_rows)
 
-        ready_mock = double("ready", count: 3)
-        scheduled_mock = double("scheduled", count: 5)
-        failed_mock = double("failed", count: 2)
-        finished_mock = double("finished", count: 15)
-
-        allow(job_source).to receive(:where)
-          .with(finished_at: nil, expired_at: nil)
-          .and_return(double("unfinished").tap do |d|
-            allow(d).to receive(:where).with("run_at <= ?", anything).and_return(ready_mock)
-            allow(d).to receive(:where).with("run_at > ?", anything).and_return(scheduled_mock)
-          end)
-
-        allow(job_source).to receive(:where)
-          .with(no_args)
-          .and_return(double("all").tap do |d|
-            allow(d).to receive(:not).with(error_count: 0).and_return(
-              double("with_errors").tap do |e|
-                allow(e).to receive(:where).with(finished_at: nil).and_return(failed_mock)
-              end
-            )
-          end)
-
-        allow(job_source).to receive(:where)
-          .with("finished_at >= ?", anything)
-          .and_return(finished_mock)
+        # Mock queue_statistics queries
+        allow(connection).to receive(:quote).and_return("'mocked_time'")
+        allow(connection).to receive(:select_value).and_return(3, 5, 2, 15)
       end
 
       it "returns a report with job statistics" do
@@ -110,8 +79,11 @@ RSpec.describe Newshound::QueReporter do
 
     context "when an error occurs fetching statistics" do
       before do
-        allow(job_source).to receive(:group).and_return(double(group: double(count: {})))
-        allow(job_source).to receive(:where).and_raise(StandardError, "Database connection error")
+        # Mock job_counts_by_type to return empty (no jobs)
+        allow(connection).to receive(:execute).and_return([])
+
+        # Mock queue_statistics to raise an error
+        allow(connection).to receive(:quote).and_raise(StandardError, "Database connection error")
       end
 
       it "logs the error and returns default stats" do
