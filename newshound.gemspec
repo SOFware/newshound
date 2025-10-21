@@ -10,7 +10,7 @@ Gem::Specification.new do |spec|
 
   spec.summary = "Real-time web UI banner for monitoring Que jobs and exception tracking"
   spec.description = "Newshound displays exceptions and job statuses in a collapsible banner for authorized users in your Rails app"
-  spec.homepage = "https://github.com/salbanez/newshound"
+  spec.homepage = "https://github.com/SOFware/newshound"
   spec.license = "MIT"
   spec.required_ruby_version = ">= 3.1.0"
 
