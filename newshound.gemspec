@@ -5,8 +5,8 @@ require_relative "lib/newshound/version"
 Gem::Specification.new do |spec|
   spec.name = "newshound"
   spec.version = Newshound::VERSION
-  spec.authors = ["salbanez"]
-  spec.email = ["salbanez@example.com"]
+  spec.authors = ["Savannah Moore"]
+  spec.email = ["savannah.albanez@sofwarellc.com"]
 
   spec.summary = "Real-time web UI banner for monitoring Que jobs and exception tracking"
   spec.description = "Newshound displays exceptions and job statuses in a collapsible banner for authorized users in your Rails app"
