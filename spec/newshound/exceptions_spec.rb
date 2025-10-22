@@ -9,6 +9,13 @@ RSpec.describe Newshound::Exceptions do
       end
     end
 
+    context "when given :solid_errors" do
+      it "returns a SolidErrors instance" do
+        source = described_class.source(:solid_errors)
+        expect(source).to be_a(Newshound::Exceptions::SolidErrors)
+      end
+    end
+
     context "when given an invalid source" do
       it "raises an error" do
         expect {

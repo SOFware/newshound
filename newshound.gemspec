@@ -30,5 +30,4 @@ Gem::Specification.new do |spec|
   # Runtime dependencies
   spec.add_dependency "rails", ">= 6.0"
   spec.add_dependency "que", ">= 1.0"
-  spec.add_dependency "exception-track", ">= 0.1"
 end
