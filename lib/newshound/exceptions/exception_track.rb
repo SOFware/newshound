@@ -12,53 +12,41 @@ module Newshound
         details = parse_exception_details(exception)
 
         <<~TEXT
-          *#{number}. #{exception_title(exception)}*
+          *#{number}. #{details[:title]}*
           • *Time:* #{exception.created_at.strftime("%I:%M %p")}
           #{format_controller(details)}
-          #{format_message(exception, details)}
+          #{format_message(details)}
         TEXT
       end
 
       def format_for_banner(exception)
         details = parse_exception_details(exception)
 
-        # Extract message
-        message = if details["message"].present?
-          details["message"].to_s
-        elsif exception.respond_to?(:message) && exception.message.present?
-          exception.message.to_s
-        else
-          +""
-        end
-
-        # Extract location
-        location = if details["controller_name"] && details["action_name"]
-          "#{details["controller_name"]}##{details["action_name"]}"
-        else
-          +""
-        end
-
         {
-          title: exception_title(exception),
-          message: message.truncate(100),
-          location: location,
+          title: details[:title],
+          message: details[:message].truncate(100),
+          location: details[:location],
           time: exception.created_at.strftime("%I:%M %p")
         }
       end
 
       private
 
-      def exception_title(exception)
-        if exception.respond_to?(:title) && exception.title.present?
-          exception.title
-        elsif exception.respond_to?(:exception_class) && exception.exception_class.present?
-          exception.exception_class
-        else
-          "Unknown Exception"
-        end
+      def parse_exception_details(exception)
+        body_data = parse_body(exception)
+        controller_name = body_data["controller_name"]
+        action_name = body_data["action_name"]
+
+        {
+          title: exception.try(:title).presence || exception.try(:exception_class).presence || "Unknown Exception",
+          message: body_data["message"].presence&.to_s || exception.try(:message).presence&.to_s || +"",
+          location: (controller_name && action_name) ? "#{controller_name}##{action_name}" : +"",
+          controller_name: controller_name,
+          action_name: action_name
+        }
       end
 
-      def parse_exception_details(exception)
+      def parse_body(exception)
         return {} unless exception.respond_to?(:body) && exception.body.present?
 
         JSON.parse(exception.body)
@@ -67,24 +55,15 @@ module Newshound
       end
 
       def format_controller(details)
-        return +"" unless details["controller_name"] && details["action_name"]
+        return +"" unless details in {controller_name: String, action_name: String}
 
-        "• *Controller:* #{details["controller_name"]}##{details["action_name"]}\n"
+        "• *Controller:* #{details[:location]}\n"
       end
 
-      def format_message(exception, details = nil)
-        details ||= parse_exception_details(exception)
+      def format_message(details)
+        return +"" unless details in {message: String}
 
-        # Try to get message from different sources
-        message = if details["message"].present?
-          details["message"]
-        elsif exception.respond_to?(:message) && exception.message.present?
-          exception.message
-        end
-
-        return +"" unless message.present?
-
-        message = message.to_s.truncate(100)
+        message = details[:message].to_s.truncate(100)
         "• *Message:* `#{message}`"
       end
     end
