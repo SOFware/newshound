@@ -9,60 +9,50 @@ module Newshound
       end
 
       def format_for_report(exception, number)
-        context = parse_context(exception)
+        details = parse_exception_details(exception)
 
         <<~TEXT
-          *#{number}. #{exception_title(exception)}*
+          *#{number}. #{details[:title]}*
           • *Time:* #{exception.created_at.strftime("%I:%M %p")}
-          #{format_controller(context)}
-          #{format_message(exception, context)}
+          #{format_controller(details)}
+          #{format_message(details)}
         TEXT
       end
 
       def format_for_banner(exception)
-        context = parse_context(exception)
-
-        # Extract message
-        message = if exception.respond_to?(:message) && exception.message.present?
-          exception.message.to_s
-        elsif context["message"].present?
-          context["message"].to_s
-        else
-          +""
-        end
-
-        # Extract location from context
-        location = if context["controller"] && context["action"]
-          "#{context["controller"]}##{context["action"]}"
-        else
-          +""
-        end
+        details = parse_exception_details(exception)
 
         {
-          title: exception_title(exception),
-          message: message.truncate(100),
-          location: location,
+          title: details[:title],
+          message: details[:message].truncate(100),
+          location: details[:location],
           time: exception.created_at.strftime("%I:%M %p")
         }
       end
 
       private
 
-      def exception_title(exception)
-        if exception.respond_to?(:error_class) && exception.error_class.present?
-          exception.error_class
-        else
-          "Unknown Exception"
-        end
+      def parse_exception_details(exception)
+        context_data = parse_context(exception)
+        controller = context_data["controller"]
+        action = context_data["action"]
+
+        {
+          title: exception.try(:error_class).presence || "Unknown Exception",
+          message: exception.try(:message).presence&.to_s || context_data["message"].presence&.to_s || +"",
+          location: (controller && action) ? "#{controller}##{action}" : +"",
+          controller: controller,
+          action: action
+        }
       end
 
       def parse_context(exception)
         return {} unless exception.respond_to?(:context) && exception.context.present?
 
-        # SolidErrors context might be a hash or JSON string
-        if exception.context.is_a?(Hash)
+        case exception.context
+        when Hash
           exception.context
-        elsif exception.context.is_a?(String)
+        when String
           JSON.parse(exception.context)
         else
           {}
@@ -71,25 +61,16 @@ module Newshound
         {}
       end
 
-      def format_controller(context)
-        return +"" unless context["controller"] && context["action"]
+      def format_controller(details)
+        return +"" unless details in {controller: String, action: String}
 
-        "• *Controller:* #{context["controller"]}##{context["action"]}\n"
+        "• *Controller:* #{details[:location]}\n"
       end
 
-      def format_message(exception, context = nil)
-        context ||= parse_context(exception)
+      def format_message(details)
+        return +"" unless details in {message: String}
 
-        # Try to get message from different sources
-        message = if exception.respond_to?(:message) && exception.message.present?
-          exception.message
-        elsif context["message"].present?
-          context["message"]
-        end
-
-        return +"" unless message.present?
-
-        message = message.to_s.truncate(100)
+        message = details[:message].to_s.truncate(100)
         "• *Message:* `#{message}`"
       end
     end
