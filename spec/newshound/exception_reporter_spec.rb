@@ -47,6 +47,16 @@ RSpec.describe Newshound::ExceptionReporter do
 
       expect(reporter.time_range).to eq(24.hours)
     end
+
+    it "uses configuration.exception_source when exception_source is nil" do
+      config = double("configuration", exception_limit: 10, exception_source: :exception_track)
+      allow(Newshound).to receive(:configuration).and_return(config)
+      expect(Newshound::Exceptions).to receive(:source).with(:exception_track).and_return(exception_source)
+
+      reporter = described_class.new
+
+      expect(reporter.exception_source).to eq(exception_source)
+    end
   end
 
   describe "#generate_report" do

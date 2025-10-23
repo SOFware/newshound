@@ -5,8 +5,8 @@ module Newshound
     attr_reader :exception_source, :configuration, :time_range
 
     def initialize(exception_source: nil, configuration: nil, time_range: 24.hours)
-      @exception_source = exception_source.is_a?(Symbol) ? Exceptions.source(exception_source) : exception_source
       @configuration = configuration || Newshound.configuration
+      @exception_source = resolve_exception_source(exception_source)
       @time_range = time_range
     end
 
@@ -34,6 +34,11 @@ module Newshound
     end
 
     private
+
+    def resolve_exception_source(source)
+      source ||= @configuration.exception_source
+      source.is_a?(Symbol) ? Exceptions.source(source) : source
+    end
 
     def recent_exceptions
       @recent_exceptions ||= exception_source.recent(time_range: time_range, limit: configuration.exception_limit)
