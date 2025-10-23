@@ -68,7 +68,7 @@ module Newshound
         <<~HTML
           <div id="newshound-banner" class="newshound-banner newshound-collapsed">
             #{render_styles}
-            <div class="newshound-header" onclick="document.getElementById('newshound-banner').classList.toggle('newshound-collapsed')">
+            <div class="newshound-header" onclick="document.getElementById('newshound-banner').classList.toggle('newshound-collapsed'); window.newshoundUpdatePadding();">
               <span class="newshound-title">
                 🐕 Newshound
                 #{summary_badge(exception_data, job_data)}
@@ -80,12 +80,46 @@ module Newshound
               #{render_jobs(job_data)}
             </div>
           </div>
+          #{render_script}
         HTML
+      end
+
+      def render_script
+        <<~JS
+          <script>
+            (function() {
+              window.newshoundUpdatePadding = function() {
+                // Wait for transition to complete
+                setTimeout(function() {
+                  var banner = document.getElementById('newshound-banner');
+                  if (banner) {
+                    var height = banner.offsetHeight;
+                    document.body.style.paddingTop = height + 'px';
+                  }
+                }, 300);
+              };
+
+              // Set initial padding after page load
+              if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', window.newshoundUpdatePadding);
+              } else {
+                window.newshoundUpdatePadding();
+              }
+
+              // Also update on window resize
+              window.addEventListener('resize', window.newshoundUpdatePadding);
+            })();
+          </script>
+        JS
       end
 
       def render_styles
         <<~CSS
           <style>
+            body {
+              padding-top: 0;
+              transition: padding-top 0.3s ease-out;
+            }
             .newshound-banner {
               position: fixed;
               top: 0;
