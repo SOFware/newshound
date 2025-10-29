@@ -117,7 +117,7 @@ module Newshound
         <<~CSS
           <style>
             body {
-              padding-top: 0;
+              padding-top: 50px;
               transition: padding-top 0.3s ease-out;
             }
             .newshound-banner {
