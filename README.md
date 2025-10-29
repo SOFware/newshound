@@ -207,7 +207,7 @@ This gem uses [Reissue](https://github.com/rails/reissue) for release management
 the following steps as you would with any other ruby gem:
 
 ```bash
-bundle exec rake bump:checksum
+bundle exec rake build:checksum
 ```
 And then create a new release:
 ```bash
