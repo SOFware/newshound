@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.2.4] - Unreleased
 
+### Fixed
+
+- Fixed release workflow to properly create version bump PRs using gh pr create instead of peter-evans/create-pull-request action, resolving compatibility issue with reissue gem
+
 ## [0.2.3] - 2025-10-29
 
 ### Fixed
