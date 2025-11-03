@@ -203,18 +203,12 @@ bin/console
 
 ## Release Management
 
-This gem uses [Reissue](https://github.com/rails/reissue) for release management. To release a new version, perform
-the following steps as you would with any other ruby gem:
+This gem uses [Reissue](https://github.com/rails/reissue) for release management. Releases are automated via GitHub Actions:
 
-```bash
-bundle exec rake build:checksum
-```
-And then create a new release:
-```bash
-bundle exec rake release
-```
-
-The final step is to push your version bump branch, open a PR, and merge it.
+1. Navigate to Actions → "Release gem to RubyGems.org"
+2. Click "Run workflow"
+3. Select version segment to bump (patch, minor, major)
+4. Review and merge the auto-generated PR
 
 ## Dependencies
 
