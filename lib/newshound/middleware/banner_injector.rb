@@ -56,27 +56,30 @@ module Newshound
       def generate_banner_html
         exception_reporter = Newshound::ExceptionReporter.new
         que_reporter = Newshound::QueReporter.new
+        warning_reporter = Newshound::WarningReporter.new
 
         exception_data = exception_reporter.banner_data
         job_data = que_reporter.banner_data
+        warning_data = warning_reporter.banner_data
 
         # Generate HTML from template
-        render_banner(exception_data, job_data)
+        render_banner(exception_data, job_data, warning_data)
       end
 
-      def render_banner(exception_data, job_data)
+      def render_banner(exception_data, job_data, warning_data = {})
         <<~HTML
           <div id="newshound-banner" class="newshound-banner newshound-collapsed">
             #{render_styles}
             <div class="newshound-header" onclick="document.getElementById('newshound-banner').classList.toggle('newshound-collapsed'); window.newshoundUpdatePadding();">
               <span class="newshound-title">
                 🐕 Newshound
-                #{summary_badge(exception_data, job_data)}
+                #{summary_badge(exception_data, job_data, warning_data)}
               </span>
               <span class="newshound-toggle">▼</span>
             </div>
             <div class="newshound-content">
               #{render_exceptions(exception_data)}
+              #{render_warnings(warning_data)}
               #{render_jobs(job_data)}
             </div>
           </div>
@@ -236,16 +239,17 @@ module Newshound
         CSS
       end
 
-      def summary_badge(exception_data, job_data)
+      def summary_badge(exception_data, job_data, warning_data = {})
         exception_count = exception_data[:exceptions]&.length || 0
         failed_jobs = job_data.dig(:queue_stats, :failed) || 0
+        warning_count = warning_data[:warnings]&.length || 0
 
         if exception_count > 0 || failed_jobs > 10
           badge_class = "error"
           text = "#{exception_count} exceptions, #{failed_jobs} failed jobs"
-        elsif failed_jobs > 5
+        elsif warning_count > 0 || failed_jobs > 5
           badge_class = "warning"
-          text = "#{failed_jobs} failed jobs"
+          text = warning_count > 0 ? "#{warning_count} warnings" : "#{failed_jobs} failed jobs"
         else
           badge_class = "success"
           text = "All clear"
@@ -275,6 +279,30 @@ module Newshound
         <<~HTML
           <div class="newshound-section">
             <div class="newshound-section-title">⚠️ Recent Exceptions (#{exceptions.length})</div>
+            #{items}
+          </div>
+        HTML
+      end
+
+      def render_warnings(data)
+        warnings = data[:warnings] || []
+
+        return "" if warnings.empty?
+
+        items = warnings.take(5).map do |w|
+          <<~HTML
+            <div class="newshound-item">
+              <div class="newshound-item-title">#{escape_html(w[:title])}</div>
+              <div class="newshound-item-detail">
+                #{escape_html(w[:message])} • #{escape_html(w[:location])} • #{escape_html(w[:time])}
+              </div>
+            </div>
+          HTML
+        end.join
+
+        <<~HTML
+          <div class="newshound-section">
+            <div class="newshound-section-title">⚠️ Warnings (#{warnings.length})</div>
             #{items}
           </div>
         HTML
