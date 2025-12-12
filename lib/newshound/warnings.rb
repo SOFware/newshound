@@ -10,6 +10,10 @@ module Newshound
     @registry = {}
 
     class << self
+      # Access the registry of registered adapters
+      # @return [Hash] The registry hash mapping names to adapter classes
+      attr_reader :registry
+
       # Register a warning adapter class with a symbolic name
       #
       # @param name [Symbol, String] The name to register the adapter under
@@ -41,13 +45,6 @@ module Newshound
         raise "Invalid warning source: #{source}" unless constant
 
         const_get(constant).new
-      end
-
-      # Access the registry of registered adapters
-      #
-      # @return [Hash] The registry hash mapping names to adapter classes
-      def registry
-        @registry
       end
 
       # Clear the registry (primarily for testing)
