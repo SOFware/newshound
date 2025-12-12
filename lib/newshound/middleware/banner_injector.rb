@@ -249,7 +249,10 @@ module Newshound
           text = "#{exception_count} exceptions, #{failed_jobs} failed jobs"
         elsif warning_count > 0 || failed_jobs > 5
           badge_class = "warning"
-          text = warning_count > 0 ? "#{warning_count} warnings" : "#{failed_jobs} failed jobs"
+          parts = []
+          parts << "#{warning_count} warnings" if warning_count > 0
+          parts << "#{failed_jobs} failed jobs" if failed_jobs > 5
+          text = parts.join(", ")
         else
           badge_class = "success"
           text = "All clear"
