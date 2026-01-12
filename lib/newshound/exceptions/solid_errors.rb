@@ -37,9 +37,11 @@ module Newshound
         controller = context_data["controller"]
         action = context_data["action"]
 
+        error_record = exception.try(:error)
+
         {
-          title: exception.try(:error_class).presence || "Unknown Exception",
-          message: exception.try(:message).presence&.to_s || context_data["message"].presence&.to_s || +"",
+          title: error_record&.exception_class.presence || "Unknown Exception",
+          message: error_record&.message.presence&.to_s || context_data["message"].presence&.to_s || +"",
           location: (controller && action) ? "#{controller}##{action}" : +"",
           controller: controller,
           action: action
