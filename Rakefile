@@ -8,7 +8,7 @@ require "standard/rake"
 Reissue::Task.create :reissue do |task|
   task.version_file = "lib/newshound/version.rb"
   task.fragment = :git
-  task.commit_finalize = false # Let workflow handle commits
+  task.push_finalize = :branch
 end
 
 RSpec::Core::RakeTask.new(:spec)
