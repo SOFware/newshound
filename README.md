@@ -203,12 +203,7 @@ bin/console
 
 ## Release Management
 
-This gem uses [Reissue](https://github.com/rails/reissue) for release management. Releases are automated via GitHub Actions:
-
-1. Navigate to Actions → "Release gem to RubyGems.org"
-2. Click "Run workflow"
-3. Select version segment to bump (patch, minor, major)
-4. Review and merge the auto-generated PR
+This gem uses [Reissue](https://github.com/SOFware/reissue) for release management. Releases are automated via the [shared release workflow](https://github.com/SOFware/reissue/blob/main/.github/workflows/SHARED_WORKFLOW_README.md). Trigger a release by running the "Release gem to RubyGems.org" workflow from the Actions tab.
 
 ## Dependencies
 
