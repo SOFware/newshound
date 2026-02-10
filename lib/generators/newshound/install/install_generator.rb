@@ -31,7 +31,7 @@ module Newshound
         say "    rake newshound:test_jobs"
         say ""
         say "  For more information, visit:", :blue
-        say "    https://github.com/salbanez/newshound"
+        say "    https://github.com/SOFware/newshound"
         say "===============================================================================", :green
         say ""
       end
