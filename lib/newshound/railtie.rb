@@ -37,13 +37,14 @@ module Newshound
 
         desc "Test job reporter"
         task test_jobs: :environment do
-          reporter = Newshound::QueReporter.new
-          data = reporter.report
+          reporter = Newshound::JobReporter.new
+          data = reporter.banner_data
+          stats = data[:queue_stats]
           puts "Job Queue Report:"
-          puts "  Ready to run: #{data.dig(:queue_stats, :ready_to_run)}"
-          puts "  Scheduled: #{data.dig(:queue_stats, :scheduled)}"
-          puts "  Failed: #{data.dig(:queue_stats, :failed)}"
-          puts "  Completed today: #{data.dig(:queue_stats, :completed_today)}"
+          puts "  Ready to run: #{stats[:ready_to_run] || 0}"
+          puts "  Scheduled: #{stats[:scheduled] || 0}"
+          puts "  Failed: #{stats[:failed] || 0}"
+          puts "  Completed today: #{stats[:completed_today] || 0}"
         end
       end
     end

@@ -8,7 +8,7 @@ Gem::Specification.new do |spec|
   spec.authors = ["Savannah Moore"]
   spec.email = ["savannah.albanez@sofwarellc.com"]
 
-  spec.summary = "Real-time web UI banner for monitoring Que jobs and exception tracking"
+  spec.summary = "Real-time web UI banner for monitoring background jobs and exception tracking"
   spec.description = "Newshound displays exceptions and job statuses in a collapsible banner for authorized users in your Rails app"
   spec.homepage = "https://github.com/SOFware/newshound"
   spec.license = "MIT"
@@ -35,5 +35,4 @@ Gem::Specification.new do |spec|
 
   # Runtime dependencies
   spec.add_dependency "rails", ">= 6.0"
-  spec.add_dependency "que", ">= 1.0"
 end

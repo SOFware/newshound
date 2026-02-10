@@ -4,7 +4,7 @@ module Newshound
   class Configuration
     attr_accessor :exception_limit, :enabled, :authorized_roles,
       :current_user_method, :authorization_block, :exception_source,
-      :warning_source, :warning_limit
+      :warning_source, :warning_limit, :job_source
 
     def initialize
       @exception_limit = 10
@@ -15,6 +15,7 @@ module Newshound
       @exception_source = :exception_track
       @warning_source = nil
       @warning_limit = 10
+      @job_source = nil
     end
 
     # Allow custom authorization logic
