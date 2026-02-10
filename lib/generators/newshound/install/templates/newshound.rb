@@ -14,6 +14,11 @@ Newshound.configure do |config|
   # Default is :exception_track
   config.exception_source = :exception_track # or :solid_errors
 
+  # Job source adapter for monitoring background jobs
+  # Uncomment and set to enable job monitoring in the banner
+  # config.job_source = :que # or a custom adapter instance
+  # See Newshound::Jobs::Base for the adapter interface
+
   # User roles that are authorized to view the Newshound banner
   # These should match the role values in your User model
   # Default is [:developer, :super_user]

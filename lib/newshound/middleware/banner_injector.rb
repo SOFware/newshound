@@ -55,11 +55,11 @@ module Newshound
 
       def generate_banner_html
         exception_reporter = Newshound::ExceptionReporter.new
-        que_reporter = Newshound::QueReporter.new
+        job_reporter = Newshound::JobReporter.new
         warning_reporter = Newshound::WarningReporter.new
 
         exception_data = exception_reporter.banner_data
-        job_data = que_reporter.banner_data
+        job_data = job_reporter.banner_data
         warning_data = warning_reporter.banner_data
 
         # Generate HTML from template
