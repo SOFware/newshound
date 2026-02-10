@@ -91,25 +91,66 @@ module Newshound
         <<~JS
           <script>
             (function() {
+              var cachedPriority, cachedBodyRule;
+
+              // Detect once whether any non-newshound stylesheet uses !important on body padding-top
+              function detectPriority() {
+                var styles = document.querySelectorAll('style:not(#newshound-styles)');
+
+                for (var i = 0; i < styles.length; i++) {
+                  if (styles[i].textContent.match(/body\\s*{[^}]*padding-top[^;]*!important/s)) {
+                    return 'important';
+                  }
+                }
+
+                try {
+                  for (var s = 0; s < document.styleSheets.length; s++) {
+                    var sheet = document.styleSheets[s];
+                    if (sheet.ownerNode && sheet.ownerNode.id === 'newshound-styles') continue;
+                    var rules = sheet.cssRules || [];
+                    for (var r = 0; r < rules.length; r++) {
+                      if (rules[r].selectorText === 'body' &&
+                          rules[r].style.getPropertyPriority('padding-top') === 'important') {
+                        return 'important';
+                      }
+                    }
+                  }
+                } catch (e) {}
+
+                return '';
+              }
+
+              // Find the html body rule in the newshound stylesheet once
+              function findBodyRule() {
+                var styleEl = document.getElementById('newshound-styles');
+                if (!styleEl || !styleEl.sheet) return null;
+                var rules = styleEl.sheet.cssRules;
+                for (var i = 0; i < rules.length; i++) {
+                  if (rules[i].selectorText === 'html body') return rules[i];
+                }
+                return null;
+              }
+
               window.newshoundUpdatePadding = function() {
-                // Wait for transition to complete
                 setTimeout(function() {
                   var banner = document.getElementById('newshound-banner');
-                  if (banner) {
-                    var height = banner.offsetHeight;
-                    document.body.style.paddingTop = height + 'px';
-                  }
+                  if (!banner) return;
+
+                  if (cachedBodyRule === undefined) cachedBodyRule = findBodyRule();
+                  if (!cachedBodyRule) return;
+
+                  if (cachedPriority === undefined) cachedPriority = detectPriority();
+
+                  cachedBodyRule.style.setProperty('padding-top', banner.offsetHeight + 'px', cachedPriority);
                 }, 300);
               };
 
-              // Set initial padding after page load
               if (document.readyState === 'loading') {
                 document.addEventListener('DOMContentLoaded', window.newshoundUpdatePadding);
               } else {
                 window.newshoundUpdatePadding();
               }
 
-              // Also update on window resize
               window.addEventListener('resize', window.newshoundUpdatePadding);
             })();
           </script>
@@ -118,8 +159,8 @@ module Newshound
 
       def render_styles
         <<~CSS
-          <style>
-            body {
+          <style id="newshound-styles">
+            html body {
               padding-top: 50px;
               transition: padding-top 0.3s ease-out;
             }
@@ -157,13 +198,13 @@ module Newshound
               font-weight: 600;
               background: rgba(255,255,255,0.2);
             }
-            .newshound-badge.error {
+            .newshound-error {
               background: #ef4444;
             }
-            .newshound-badge.warning {
+            .newshound-warning {
               background: #f59e0b;
             }
-            .newshound-badge.success {
+            .newshound-success {
               background: #10b981;
             }
             .newshound-toggle {
@@ -245,16 +286,16 @@ module Newshound
         warning_count = warning_data[:warnings]&.length || 0
 
         if exception_count > 0 || failed_jobs > 10
-          badge_class = "error"
+          badge_class = "newshound-error"
           text = "#{exception_count} exceptions, #{failed_jobs} failed jobs"
         elsif warning_count > 0 || failed_jobs > 5
-          badge_class = "warning"
+          badge_class = "newshound-warning"
           parts = []
           parts << "#{warning_count} warnings" if warning_count > 0
           parts << "#{failed_jobs} failed jobs" if failed_jobs > 5
           text = parts.join(", ")
         else
-          badge_class = "success"
+          badge_class = "newshound-success"
           text = "All clear"
         end
 
