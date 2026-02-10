@@ -29,8 +29,22 @@ module Newshound
     # Returns data formatted for the banner UI
     def banner_data
       {
-        exceptions: recent_exceptions.map { |exception| exception_source.format_for_banner(exception) }
+        exceptions: recent_exceptions.map { |exception|
+          exception_source.format_for_banner(exception)
+        }
       }
+    end
+
+    def formatted_exception_count(
+      format = "Total exceptions: %s"
+    )
+      format % recent_exceptions.length
+    end
+
+    def exception_summary
+      recent_exceptions.map.with_index(1) do |ex, i|
+        exception_source.format_for_report(ex, i)
+      end
     end
 
     private

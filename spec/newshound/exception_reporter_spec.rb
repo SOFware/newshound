@@ -158,4 +158,54 @@ RSpec.describe Newshound::ExceptionReporter do
       )
     end
   end
+
+  describe "#formatted_exception_count" do
+    before do
+      allow(exception_source).to receive(:recent)
+        .and_return(exceptions)
+    end
+
+    context "with exceptions" do
+      let(:exceptions) { [double, double, double] }
+
+      it "returns count with default format" do
+        expect(reporter.formatted_exception_count)
+          .to eq("Total exceptions: 3")
+      end
+
+      it "accepts a custom format string" do
+        expect(
+          reporter.formatted_exception_count("Found %s errors")
+        ).to eq("Found 3 errors")
+      end
+    end
+
+    context "with no exceptions" do
+      let(:exceptions) { [] }
+
+      it "returns zero" do
+        expect(reporter.formatted_exception_count)
+          .to eq("Total exceptions: 0")
+      end
+    end
+  end
+
+  describe "#exception_summary" do
+    let(:exception1) { double("exception1") }
+    let(:exception2) { double("exception2") }
+
+    before do
+      allow(exception_source).to receive(:recent)
+        .and_return([exception1, exception2])
+      allow(exception_source).to receive(:format_for_report)
+        .with(exception1, 1).and_return("formatted 1")
+      allow(exception_source).to receive(:format_for_report)
+        .with(exception2, 2).and_return("formatted 2")
+    end
+
+    it "delegates to exception_source.format_for_report" do
+      expect(reporter.exception_summary)
+        .to eq(["formatted 1", "formatted 2"])
+    end
+  end
 end
