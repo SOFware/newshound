@@ -27,11 +27,10 @@ module Newshound
         desc "Test exception reporter"
         task test_exceptions: :environment do
           reporter = Newshound::ExceptionReporter.new
-          data = reporter.report
           puts "Exception Report:"
-          puts "  Total exceptions: #{data[:exceptions]&.length || 0}"
-          data[:exceptions]&.each_with_index do |ex, i|
-            puts "  #{i + 1}. #{ex[:title]} - #{ex[:message]}"
+          puts "  #{reporter.formatted_exception_count}"
+          reporter.exception_summary.each do |line|
+            puts "  #{line}"
           end
         end
 
