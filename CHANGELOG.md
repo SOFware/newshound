@@ -5,6 +5,8 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - Unreleased
+
 ## [0.2.8] - 2026-02-10
 
 ### Changed
@@ -30,5 +32,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Jobs::Que adapter for Que job backend (c50ba9c)
 - JobReporter that delegates to a configurable job source adapter (c50ba9c)
 - ExceptionReporter#formatted_exception_count and #exception_summary helpers (e440188)
-
-## [0.2.7] - 2026-01-30
