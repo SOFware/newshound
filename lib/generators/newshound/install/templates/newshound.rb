@@ -28,14 +28,14 @@ Newshound.configure do |config|
   # Most apps use :current_user (Devise, etc.)
   # Default is :current_user
   config.current_user_method = :current_user
-end
 
-# Advanced: Custom authorization logic
-# If the default role-based authorization doesn't fit your needs,
-# you can provide a custom authorization block:
-#
-# Newshound.authorize_with do |controller|
-#   # Your custom logic here
-#   # Return true to show the banner, false to hide it
-#   controller.current_user&.admin?
-# end
+  # Custom authorization logic:
+  # If the default role-based authorization doesn't fit your needs,
+  # you can provide a custom authorization block:
+  #
+  # config.authorize_with do |controller|
+  #   # Your custom logic here
+  #   # Return true to show the banner, false to hide it
+  #   controller.current_user&.admin?
+  # end
+end
