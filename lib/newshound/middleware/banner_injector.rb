@@ -318,76 +318,57 @@ module Newshound
 
       def render_exceptions(data)
         exceptions = data[:exceptions] || []
-        links = Newshound.configuration.exception_links
 
         if exceptions.empty?
           return %(<div class="newshound-section"><div class="newshound-section-title">✅ Exceptions</div><div class="newshound-item">No exceptions in the last 24 hours</div></div>)
         end
 
-        items = exceptions.take(5).map do |ex|
-          item_content = <<~HTML
-            <div class="newshound-item-title">#{escape_html(ex[:title])}</div>
-            <div class="newshound-item-detail">
-              #{escape_html(ex[:message])} • #{escape_html(ex[:location])} • #{escape_html(ex[:time])}
-            </div>
-          HTML
-
-          if links[:show] && ex[:id]
-            url = links[:show].gsub(":id", ex[:id].to_s)
-            %(<a href="#{escape_html(url)}" class="newshound-link"><div class="newshound-item">#{item_content}</div></a>)
-          else
-            %(<div class="newshound-item">#{item_content}</div>)
-          end
-        end.join
-
-        section_title = "⚠️ Recent Exceptions (#{exceptions.length})"
-        title_html = if links[:index]
-          %(<a href="#{escape_html(links[:index])}" class="newshound-link">#{section_title}</a>)
-        else
-          section_title
-        end
-
-        <<~HTML
-          <div class="newshound-section">
-            <div class="newshound-section-title">#{title_html}</div>
-            #{items}
-          </div>
-        HTML
+        render_item_section(
+          items: exceptions,
+          links: Newshound.configuration.exception_links,
+          title: "⚠️ Recent Exceptions (#{exceptions.length})"
+        )
       end
 
       def render_warnings(data)
         warnings = data[:warnings] || []
-        links = Newshound.configuration.warning_links
 
         return "" if warnings.empty?
 
-        items = warnings.take(5).map do |w|
+        render_item_section(
+          items: warnings,
+          links: Newshound.configuration.warning_links,
+          title: "⚠️ Warnings (#{warnings.length})"
+        )
+      end
+
+      def render_item_section(items:, links:, title:)
+        rendered_items = items.take(5).map do |item|
           item_content = <<~HTML
-            <div class="newshound-item-title">#{escape_html(w[:title])}</div>
+            <div class="newshound-item-title">#{escape_html(item[:title])}</div>
             <div class="newshound-item-detail">
-              #{escape_html(w[:message])} • #{escape_html(w[:location])} • #{escape_html(w[:time])}
+              #{escape_html(item[:message])} • #{escape_html(item[:location])} • #{escape_html(item[:time])}
             </div>
           HTML
 
-          if links[:show] && w[:id]
-            url = links[:show].gsub(":id", w[:id].to_s)
+          if links[:show] && item[:id]
+            url = links[:show].gsub(":id", item[:id].to_s)
             %(<a href="#{escape_html(url)}" class="newshound-link"><div class="newshound-item">#{item_content}</div></a>)
           else
             %(<div class="newshound-item">#{item_content}</div>)
           end
         end.join
 
-        section_title = "⚠️ Warnings (#{warnings.length})"
         title_html = if links[:index]
-          %(<a href="#{escape_html(links[:index])}" class="newshound-link">#{section_title}</a>)
+          %(<a href="#{escape_html(links[:index])}" class="newshound-link">#{title}</a>)
         else
-          section_title
+          title
         end
 
         <<~HTML
           <div class="newshound-section">
             <div class="newshound-section-title">#{title_html}</div>
-            #{items}
+            #{rendered_items}
           </div>
         HTML
       end
