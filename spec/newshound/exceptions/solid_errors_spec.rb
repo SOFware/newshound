@@ -123,6 +123,7 @@ RSpec.describe Newshound::Exceptions::SolidErrors do
     let(:error_record) do
       double(
         "error",
+        id: 99,
         exception_class: "ActiveRecord::RecordNotFound",
         message: "Record not found"
       )
@@ -131,6 +132,7 @@ RSpec.describe Newshound::Exceptions::SolidErrors do
     let(:exception) do
       double(
         "occurrence",
+        id: 7,
         created_at: Time.new(2025, 10, 21, 14, 30, 0),
         context: {"controller" => "UsersController", "action" => "show"},
         respond_to?: true,
@@ -141,12 +143,14 @@ RSpec.describe Newshound::Exceptions::SolidErrors do
     before do
       allow(exception).to receive(:respond_to?).with(:context).and_return(true)
       allow(exception).to receive(:try).with(:error).and_return(error_record)
+      allow(exception).to receive(:try).with(:id).and_return(7)
     end
 
     it "formats exception for banner UI" do
       result = adapter.format_for_banner(exception)
 
       expect(result).to eq({
+        id: 99,
         title: "ActiveRecord::RecordNotFound",
         message: "Record not found",
         location: "UsersController#show",
@@ -154,15 +158,48 @@ RSpec.describe Newshound::Exceptions::SolidErrors do
       })
     end
 
+    it "uses the error record id for linking" do
+      result = adapter.format_for_banner(exception)
+
+      expect(result[:id]).to eq(99)
+    end
+
+    it "falls back to occurrence id when error has no id" do
+      error_without_id = double(
+        "error",
+        id: nil,
+        exception_class: "StandardError",
+        message: "msg"
+      )
+
+      occurrence = double(
+        "occurrence",
+        id: 7,
+        created_at: Time.new(2025, 10, 21, 14, 30, 0),
+        context: {},
+        respond_to?: true,
+        error: error_without_id
+      )
+      allow(occurrence).to receive(:respond_to?).with(:context).and_return(true)
+      allow(occurrence).to receive(:try).with(:error).and_return(error_without_id)
+      allow(occurrence).to receive(:try).with(:id).and_return(7)
+
+      result = adapter.format_for_banner(occurrence)
+
+      expect(result[:id]).to eq(7)
+    end
+
     it "handles exceptions without controller info" do
       error_without_controller = double(
         "error",
+        id: 50,
         exception_class: "ArgumentError",
         message: "Invalid argument"
       )
 
       exception_without_controller = double(
         "occurrence",
+        id: 8,
         created_at: Time.new(2025, 10, 21, 14, 30, 0),
         context: {},
         respond_to?: true,
@@ -170,6 +207,7 @@ RSpec.describe Newshound::Exceptions::SolidErrors do
       )
       allow(exception_without_controller).to receive(:respond_to?).with(:context).and_return(true)
       allow(exception_without_controller).to receive(:try).with(:error).and_return(error_without_controller)
+      allow(exception_without_controller).to receive(:try).with(:id).and_return(8)
 
       result = adapter.format_for_banner(exception_without_controller)
 
@@ -180,12 +218,14 @@ RSpec.describe Newshound::Exceptions::SolidErrors do
       long_message = "a" * 150
       long_error = double(
         "error",
+        id: 51,
         exception_class: "Error",
         message: long_message
       )
 
       exception_with_long_message = double(
         "occurrence",
+        id: 9,
         created_at: Time.new(2025, 10, 21, 14, 30, 0),
         context: {},
         respond_to?: true,
@@ -193,6 +233,7 @@ RSpec.describe Newshound::Exceptions::SolidErrors do
       )
       allow(exception_with_long_message).to receive(:respond_to?).with(:context).and_return(true)
       allow(exception_with_long_message).to receive(:try).with(:error).and_return(long_error)
+      allow(exception_with_long_message).to receive(:try).with(:id).and_return(9)
 
       result = adapter.format_for_banner(exception_with_long_message)
 
@@ -202,12 +243,14 @@ RSpec.describe Newshound::Exceptions::SolidErrors do
     it "handles message from context when exception message is empty" do
       error_with_empty_message = double(
         "error",
+        id: 52,
         exception_class: "StandardError",
         message: nil
       )
 
       exception_with_context_message = double(
         "occurrence",
+        id: 10,
         created_at: Time.new(2025, 10, 21, 14, 30, 0),
         context: {"message" => "Error from context"},
         respond_to?: true,
@@ -215,6 +258,7 @@ RSpec.describe Newshound::Exceptions::SolidErrors do
       )
       allow(exception_with_context_message).to receive(:respond_to?).with(:context).and_return(true)
       allow(exception_with_context_message).to receive(:try).with(:error).and_return(error_with_empty_message)
+      allow(exception_with_context_message).to receive(:try).with(:id).and_return(10)
 
       result = adapter.format_for_banner(exception_with_context_message)
 

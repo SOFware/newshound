@@ -23,6 +23,7 @@ module Newshound
         details = parse_exception_details(exception)
 
         {
+          id: exception.try(:error)&.id || exception.try(:id),
           title: details[:title],
           message: details[:message].truncate(100),
           location: details[:location],

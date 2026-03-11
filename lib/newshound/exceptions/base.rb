@@ -31,7 +31,7 @@ module Newshound
       # Formats an exception for banner UI display
       #
       # @param exception [Object] Exception record from the tracking system
-      # @return [Hash] Hash with keys: :title, :message, :location, :time
+      # @return [Hash] Hash with keys: :id, :title, :message, :location, :time
       def format_for_banner(exception)
         raise NotImplementedError, "#{self.class} must implement #format_for_banner"
       end

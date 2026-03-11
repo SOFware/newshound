@@ -88,6 +88,7 @@ RSpec.describe Newshound::Exceptions::ExceptionTrack do
     let(:exception) do
       double(
         "exception",
+        id: 42,
         title: "ActiveRecord::RecordNotFound",
         created_at: Time.new(2025, 10, 21, 14, 30, 0),
         body: '{"controller_name":"UsersController","action_name":"show","message":"Record not found"}',
@@ -99,12 +100,14 @@ RSpec.describe Newshound::Exceptions::ExceptionTrack do
       allow(exception).to receive(:respond_to?).with(:title).and_return(true)
       allow(exception).to receive(:respond_to?).with(:body).and_return(true)
       allow(exception).to receive(:respond_to?).with(:message).and_return(false)
+      allow(exception).to receive(:try) { |method| exception.public_send(method) }
     end
 
     it "formats exception for banner UI" do
       result = adapter.format_for_banner(exception)
 
       expect(result).to eq({
+        id: 42,
         title: "ActiveRecord::RecordNotFound",
         message: "Record not found",
         location: "UsersController#show",
@@ -112,9 +115,16 @@ RSpec.describe Newshound::Exceptions::ExceptionTrack do
       })
     end
 
+    it "includes the record id" do
+      result = adapter.format_for_banner(exception)
+
+      expect(result[:id]).to eq(42)
+    end
+
     it "handles exceptions without controller info" do
       exception_without_controller = double(
         "exception",
+        id: nil,
         title: "ArgumentError",
         created_at: Time.new(2025, 10, 21, 14, 30, 0),
         body: '{"message":"Invalid argument"}',
@@ -122,6 +132,7 @@ RSpec.describe Newshound::Exceptions::ExceptionTrack do
       )
       allow(exception_without_controller).to receive(:respond_to?).with(:title).and_return(true)
       allow(exception_without_controller).to receive(:respond_to?).with(:body).and_return(true)
+      allow(exception_without_controller).to receive(:try) { |method| exception_without_controller.public_send(method) }
 
       result = adapter.format_for_banner(exception_without_controller)
 
@@ -132,6 +143,7 @@ RSpec.describe Newshound::Exceptions::ExceptionTrack do
       long_message = "a" * 150
       exception_with_long_message = double(
         "exception",
+        id: nil,
         title: "Error",
         created_at: Time.new(2025, 10, 21, 14, 30, 0),
         body: "{\"message\":\"#{long_message}\"}",
@@ -139,6 +151,7 @@ RSpec.describe Newshound::Exceptions::ExceptionTrack do
       )
       allow(exception_with_long_message).to receive(:respond_to?).with(:title).and_return(true)
       allow(exception_with_long_message).to receive(:respond_to?).with(:body).and_return(true)
+      allow(exception_with_long_message).to receive(:try) { |method| exception_with_long_message.public_send(method) }
 
       result = adapter.format_for_banner(exception_with_long_message)
 
