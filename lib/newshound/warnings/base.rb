@@ -33,7 +33,7 @@ module Newshound
       # Formats a warning for banner UI display
       #
       # @param warning [Object] Warning record from the data source
-      # @return [Hash] Hash with keys: :title, :message, :location, :time
+      # @return [Hash] Hash with keys: :id, :title, :message, :location, :time
       def format_for_banner(warning)
         raise NotImplementedError, "#{self.class} must implement #format_for_banner"
       end

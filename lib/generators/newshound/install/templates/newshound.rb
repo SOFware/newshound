@@ -29,6 +29,28 @@ Newshound.configure do |config|
   # Default is :current_user
   config.current_user_method = :current_user
 
+  # Links for banner items
+  # Configure paths so banner items link to your exception/job dashboards.
+  # Use :id in show paths to interpolate the record ID.
+  #
+  # config.exception_links = {
+  #   index: "/errors",
+  #   show: "/errors/:id"
+  # }
+  #
+  # config.job_links = {
+  #   index: "/background_jobs",
+  #   show: "/background_jobs/jobs/:id",
+  #   scheduled: "/background_jobs/scheduled",
+  #   failed: "/background_jobs/failed",
+  #   completed: "/background_jobs/completed"
+  # }
+  #
+  # config.warning_links = {
+  #   index: "/warnings",
+  #   show: "/warnings/:id"
+  # }
+
   # Custom authorization logic:
   # If the default role-based authorization doesn't fit your needs,
   # you can provide a custom authorization block:

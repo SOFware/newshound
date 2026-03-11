@@ -276,6 +276,20 @@ module Newshound
               text-transform: uppercase;
               letter-spacing: 0.5px;
             }
+            .newshound-link {
+              color: inherit;
+              text-decoration: none;
+            }
+            .newshound-link:hover {
+              text-decoration: underline;
+            }
+            a.newshound-stat {
+              color: inherit;
+              text-decoration: none;
+            }
+            a.newshound-stat:hover {
+              background: rgba(255,255,255,0.2);
+            }
           </style>
         CSS
       end
@@ -309,23 +323,11 @@ module Newshound
           return %(<div class="newshound-section"><div class="newshound-section-title">✅ Exceptions</div><div class="newshound-item">No exceptions in the last 24 hours</div></div>)
         end
 
-        items = exceptions.take(5).map do |ex|
-          <<~HTML
-            <div class="newshound-item">
-              <div class="newshound-item-title">#{escape_html(ex[:title])}</div>
-              <div class="newshound-item-detail">
-                #{escape_html(ex[:message])} • #{escape_html(ex[:location])} • #{escape_html(ex[:time])}
-              </div>
-            </div>
-          HTML
-        end.join
-
-        <<~HTML
-          <div class="newshound-section">
-            <div class="newshound-section-title">⚠️ Recent Exceptions (#{exceptions.length})</div>
-            #{items}
-          </div>
-        HTML
+        render_item_section(
+          items: exceptions,
+          links: Newshound.configuration.exception_links,
+          title: "⚠️ Recent Exceptions (#{exceptions.length})"
+        )
       end
 
       def render_warnings(data)
@@ -333,51 +335,79 @@ module Newshound
 
         return "" if warnings.empty?
 
-        items = warnings.take(5).map do |w|
-          <<~HTML
-            <div class="newshound-item">
-              <div class="newshound-item-title">#{escape_html(w[:title])}</div>
-              <div class="newshound-item-detail">
-                #{escape_html(w[:message])} • #{escape_html(w[:location])} • #{escape_html(w[:time])}
-              </div>
+        render_item_section(
+          items: warnings,
+          links: Newshound.configuration.warning_links,
+          title: "⚠️ Warnings (#{warnings.length})"
+        )
+      end
+
+      def render_item_section(items:, links:, title:)
+        rendered_items = items.take(5).map do |item|
+          item_content = <<~HTML
+            <div class="newshound-item-title">#{escape_html(item[:title])}</div>
+            <div class="newshound-item-detail">
+              #{escape_html(item[:message])} • #{escape_html(item[:location])} • #{escape_html(item[:time])}
             </div>
           HTML
+
+          if links[:show] && item[:id]
+            url = links[:show].gsub(":id", item[:id].to_s)
+            %(<a href="#{escape_html(url)}" class="newshound-link"><div class="newshound-item">#{item_content}</div></a>)
+          else
+            %(<div class="newshound-item">#{item_content}</div>)
+          end
         end.join
+
+        title_html = if links[:index]
+          %(<a href="#{escape_html(links[:index])}" class="newshound-link">#{title}</a>)
+        else
+          title
+        end
 
         <<~HTML
           <div class="newshound-section">
-            <div class="newshound-section-title">⚠️ Warnings (#{warnings.length})</div>
-            #{items}
+            <div class="newshound-section-title">#{title_html}</div>
+            #{rendered_items}
           </div>
         HTML
       end
 
       def render_jobs(data)
         stats = data[:queue_stats] || {}
+        links = Newshound.configuration.job_links
+
+        section_title = "📊 Job Queue Status"
+        title_html = if links[:index]
+          %(<a href="#{escape_html(links[:index])}" class="newshound-link">#{section_title}</a>)
+        else
+          section_title
+        end
 
         <<~HTML
           <div class="newshound-section">
-            <div class="newshound-section-title">📊 Job Queue Status</div>
+            <div class="newshound-section-title">#{title_html}</div>
             <div class="newshound-grid">
-              <div class="newshound-stat">
-                <span class="newshound-stat-value">#{stats[:ready_to_run] || 0}</span>
-                <span class="newshound-stat-label">Ready</span>
-              </div>
-              <div class="newshound-stat">
-                <span class="newshound-stat-value">#{stats[:scheduled] || 0}</span>
-                <span class="newshound-stat-label">Scheduled</span>
-              </div>
-              <div class="newshound-stat">
-                <span class="newshound-stat-value">#{stats[:failed] || 0}</span>
-                <span class="newshound-stat-label">Failed</span>
-              </div>
-              <div class="newshound-stat">
-                <span class="newshound-stat-value">#{stats[:completed_today] || 0}</span>
-                <span class="newshound-stat-label">Completed Today</span>
-              </div>
+              #{render_job_stat(stats[:ready_to_run] || 0, "Ready", links[:index])}
+              #{render_job_stat(stats[:scheduled] || 0, "Scheduled", links[:scheduled])}
+              #{render_job_stat(stats[:failed] || 0, "Failed", links[:failed])}
+              #{render_job_stat(stats[:completed_today] || 0, "Completed Today", links[:completed])}
             </div>
           </div>
         HTML
+      end
+
+      def render_job_stat(value, label, link)
+        content = <<~HTML
+          <span class="newshound-stat-value">#{value}</span>
+          <span class="newshound-stat-label">#{label}</span>
+        HTML
+
+        if link
+          %(<a href="#{escape_html(link)}" class="newshound-stat">#{content}</a>)
+        else
+          %(<div class="newshound-stat">#{content}</div>)
+        end
       end
 
       def escape_html(text)
