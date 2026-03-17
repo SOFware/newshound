@@ -10,6 +10,10 @@ module Newshound
     # - #format_for_report(exception) - Formats a single exception for Slack/report display
     # - #format_for_banner(exception) - Formats a single exception for banner UI
     class Base
+      def initialize(config = {})
+        @config = config
+      end
+
       # Fetches recent exceptions from the exception tracking system
       #
       # @param time_range [ActiveSupport::Duration] Time duration to look back (e.g., 24.hours)
