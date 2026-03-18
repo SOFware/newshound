@@ -4,6 +4,7 @@ module Newshound
   class Configuration
     attr_accessor :exception_limit, :enabled, :authorized_roles,
       :current_user_method, :authorization_block, :exception_source,
+      :exception_source_config,
       :warning_source, :warning_limit, :job_source,
       :exception_links, :job_links, :warning_links
 
@@ -14,6 +15,7 @@ module Newshound
       @current_user_method = :current_user
       @authorization_block = nil
       @exception_source = :exception_track
+      @exception_source_config = {}
       @warning_source = nil
       @warning_limit = 10
       @job_source = nil

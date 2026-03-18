@@ -15,11 +15,12 @@ RSpec.describe Newshound::ExceptionReporter do
 
   describe "#initialize" do
     it "uses Exceptions.source when given a symbol" do
-      expect(Newshound::Exceptions).to receive(:source).with(:exception_track).and_return(exception_source)
+      config = double("configuration", exception_limit: 10, exception_source_config: {})
+      expect(Newshound::Exceptions).to receive(:source).with(:exception_track, {}).and_return(exception_source)
 
       reporter = described_class.new(
         exception_source: :exception_track,
-        configuration: configuration
+        configuration: config
       )
 
       expect(reporter.exception_source).to eq(exception_source)
@@ -49,9 +50,9 @@ RSpec.describe Newshound::ExceptionReporter do
     end
 
     it "uses configuration.exception_source when exception_source is nil" do
-      config = double("configuration", exception_limit: 10, exception_source: :exception_track)
+      config = double("configuration", exception_limit: 10, exception_source: :exception_track, exception_source_config: {})
       allow(Newshound).to receive(:configuration).and_return(config)
-      expect(Newshound::Exceptions).to receive(:source).with(:exception_track).and_return(exception_source)
+      expect(Newshound::Exceptions).to receive(:source).with(:exception_track, {}).and_return(exception_source)
 
       reporter = described_class.new
 

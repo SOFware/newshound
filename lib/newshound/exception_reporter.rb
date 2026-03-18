@@ -51,7 +51,7 @@ module Newshound
 
     def resolve_exception_source(source)
       source ||= @configuration.exception_source
-      source.is_a?(Symbol) ? Exceptions.source(source) : source
+      source.is_a?(Symbol) ? Exceptions.source(source, @configuration.exception_source_config) : source
     end
 
     def recent_exceptions
