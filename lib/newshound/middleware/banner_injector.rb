@@ -75,12 +75,18 @@ module Newshound
                 🐕 Newshound
                 #{summary_badge(exception_data, job_data, warning_data)}
               </span>
-              <span class="newshound-toggle">▼</span>
+              <span class="newshound-header-controls">
+                <span class="newshound-minimize" onclick="event.stopPropagation(); document.getElementById('newshound-banner').classList.add('newshound-minimized'); window.newshoundUpdatePadding();" title="Minimize">−</span>
+                <span class="newshound-toggle">▼</span>
+              </span>
             </div>
             <div class="newshound-content">
               #{render_exceptions(exception_data)}
               #{render_warnings(warning_data)}
               #{render_jobs(job_data)}
+            </div>
+            <div class="newshound-restore" onclick="document.getElementById('newshound-banner').classList.remove('newshound-minimized'); window.newshoundUpdatePadding();" title="Restore Newshound">
+              🐕
             </div>
           </div>
           #{render_script}
@@ -289,6 +295,48 @@ module Newshound
             }
             a.newshound-stat:hover {
               background: rgba(255,255,255,0.2);
+            }
+            .newshound-header-controls {
+              display: flex;
+              align-items: center;
+              gap: 12px;
+            }
+            .newshound-minimize {
+              cursor: pointer;
+              font-size: 18px;
+              font-weight: 700;
+              line-height: 1;
+              opacity: 0.7;
+              padding: 0 4px;
+            }
+            .newshound-minimize:hover {
+              opacity: 1;
+            }
+            .newshound-restore {
+              display: none;
+            }
+            .newshound-banner.newshound-minimized .newshound-header {
+              display: none;
+            }
+            .newshound-banner.newshound-minimized .newshound-content {
+              max-height: 0;
+              overflow: hidden;
+              border-top: none;
+            }
+            .newshound-banner.newshound-minimized .newshound-restore {
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              width: 36px;
+              height: 36px;
+              cursor: pointer;
+              font-size: 16px;
+              user-select: none;
+            }
+            .newshound-banner.newshound-minimized {
+              left: auto;
+              border-radius: 0 0 0 8px;
+              box-shadow: -2px 2px 6px rgba(0,0,0,0.2);
             }
           </style>
         CSS
