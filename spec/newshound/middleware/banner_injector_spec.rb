@@ -271,6 +271,45 @@ RSpec.describe Newshound::Middleware::BannerInjector do
     end
   end
 
+  describe "minimize" do
+    it "includes a minimize button in the header" do
+      html = response_body(env)
+
+      expect(html).to include("newshound-minimize")
+    end
+
+    it "includes minimized state CSS that hides everything except the toggle" do
+      html = response_body(env)
+
+      expect(html).to include("newshound-minimized")
+    end
+
+    it "sets body padding to 0 when minimized via script" do
+      html = response_body(env)
+
+      expect(html).to include("newshound-minimized")
+      expect(html).to include("newshoundUpdatePadding")
+    end
+
+    it "persists minimized state to localStorage" do
+      html = response_body(env)
+
+      expect(html).to include("localStorage.setItem('newshound-minimized'")
+    end
+
+    it "restores minimized state from localStorage on load" do
+      html = response_body(env)
+
+      expect(html).to include("localStorage.getItem('newshound-minimized')")
+    end
+
+    it "clears localStorage when restoring from minimized" do
+      html = response_body(env)
+
+      expect(html).to include("localStorage.removeItem('newshound-minimized')")
+    end
+  end
+
   describe "HTML safety" do
     before do
       configuration.exception_links = {show: "/errors/:id"}
