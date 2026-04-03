@@ -76,7 +76,7 @@ module Newshound
                 #{summary_badge(exception_data, job_data, warning_data)}
               </span>
               <span class="newshound-header-controls">
-                <span class="newshound-minimize" onclick="event.stopPropagation(); document.getElementById('newshound-banner').classList.add('newshound-minimized'); window.newshoundUpdatePadding();" title="Minimize">−</span>
+                <span class="newshound-minimize" onclick="event.stopPropagation(); document.getElementById('newshound-banner').classList.add('newshound-minimized'); localStorage.setItem('newshound-minimized','1'); window.newshoundUpdatePadding();" title="Minimize">−</span>
                 <span class="newshound-toggle">▼</span>
               </span>
             </div>
@@ -85,7 +85,7 @@ module Newshound
               #{render_warnings(warning_data)}
               #{render_jobs(job_data)}
             </div>
-            <div class="newshound-restore" onclick="document.getElementById('newshound-banner').classList.remove('newshound-minimized'); window.newshoundUpdatePadding();" title="Restore Newshound">
+            <div class="newshound-restore" onclick="document.getElementById('newshound-banner').classList.remove('newshound-minimized'); localStorage.removeItem('newshound-minimized'); window.newshoundUpdatePadding();" title="Restore Newshound">
               🐕
             </div>
           </div>
@@ -97,6 +97,11 @@ module Newshound
         <<~JS
           <script>
             (function() {
+              // Restore minimized state from localStorage
+              if (localStorage.getItem('newshound-minimized')) {
+                document.getElementById('newshound-banner').classList.add('newshound-minimized');
+              }
+
               var cachedPriority, cachedBodyRule;
 
               // Detect once whether any non-newshound stylesheet uses !important on body padding-top

@@ -290,6 +290,24 @@ RSpec.describe Newshound::Middleware::BannerInjector do
       expect(html).to include("newshound-minimized")
       expect(html).to include("newshoundUpdatePadding")
     end
+
+    it "persists minimized state to localStorage" do
+      html = response_body(env)
+
+      expect(html).to include("localStorage.setItem('newshound-minimized'")
+    end
+
+    it "restores minimized state from localStorage on load" do
+      html = response_body(env)
+
+      expect(html).to include("localStorage.getItem('newshound-minimized')")
+    end
+
+    it "clears localStorage when restoring from minimized" do
+      html = response_body(env)
+
+      expect(html).to include("localStorage.removeItem('newshound-minimized')")
+    end
   end
 
   describe "HTML safety" do
