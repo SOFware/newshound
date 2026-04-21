@@ -111,7 +111,7 @@ RSpec.describe Newshound::Middleware::BannerInjector do
         queue_stats: {
           ready_to_run: 3,
           scheduled: 5,
-          failed: 2,
+          failed: 6,
           completed_today: 15
         }
       }
@@ -271,7 +271,52 @@ RSpec.describe Newshound::Middleware::BannerInjector do
     end
   end
 
+  describe "no notable data" do
+    it "does not inject the banner" do
+      _status, _headers, body = middleware.call(env)
+
+      expect(body.first).not_to include("newshound-banner")
+      expect(body.first).to eq("<html><body>Hello</body></html>")
+    end
+
+    context "when failed jobs exceed the configured threshold" do
+      before do
+        allow_any_instance_of(Newshound::JobReporter).to receive(:banner_data).and_return(
+          queue_stats: {failed: 3}
+        )
+        configuration.failed_jobs_threshold = 2
+      end
+
+      it "injects the banner" do
+        html = response_body(env)
+
+        expect(html).to include("newshound-banner")
+      end
+    end
+
+    context "when failed jobs are at or below the configured threshold" do
+      before do
+        allow_any_instance_of(Newshound::JobReporter).to receive(:banner_data).and_return(
+          queue_stats: {failed: 2}
+        )
+        configuration.failed_jobs_threshold = 2
+      end
+
+      it "does not inject the banner" do
+        _status, _headers, body = middleware.call(env)
+
+        expect(body.first).not_to include("newshound-banner")
+      end
+    end
+  end
+
   describe "minimize" do
+    before do
+      allow_any_instance_of(Newshound::ExceptionReporter).to receive(:banner_data).and_return(
+        exceptions: [{title: "RuntimeError", message: "boom", location: "app.rb:1", time: "12:00 PM"}]
+      )
+    end
+
     it "includes a minimize button in the header" do
       html = response_body(env)
 

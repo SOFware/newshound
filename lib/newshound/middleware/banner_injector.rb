@@ -19,8 +19,9 @@ module Newshound
         return [status, headers, response] unless controller
         return [status, headers, response] unless Newshound::Authorization.authorized?(controller)
 
-        # Get banner HTML
+        # Get banner HTML (nil when nothing notable to display)
         banner_html = generate_banner_html
+        return [status, headers, response] unless banner_html
 
         # Inject banner after <body> tag
         new_response = inject_banner(response, banner_html)
@@ -62,8 +63,18 @@ module Newshound
         job_data = job_reporter.banner_data
         warning_data = warning_reporter.banner_data
 
-        # Generate HTML from template
+        return nil unless notable_data?(exception_data, job_data, warning_data)
+
         render_banner(exception_data, job_data, warning_data)
+      end
+
+      def notable_data?(exception_data, job_data, warning_data)
+        exception_count = exception_data[:exceptions]&.length || 0
+        failed_jobs = job_data.dig(:queue_stats, :failed) || 0
+        warning_count = warning_data[:warnings]&.length || 0
+        threshold = Newshound.configuration.failed_jobs_threshold
+
+        exception_count > 0 || warning_count > 0 || failed_jobs > threshold
       end
 
       def render_banner(exception_data, job_data, warning_data = {})
@@ -351,19 +362,17 @@ module Newshound
         exception_count = exception_data[:exceptions]&.length || 0
         failed_jobs = job_data.dig(:queue_stats, :failed) || 0
         warning_count = warning_data[:warnings]&.length || 0
+        threshold = Newshound.configuration.failed_jobs_threshold
 
-        if exception_count > 0 || failed_jobs > 10
+        if exception_count > 0
           badge_class = "newshound-error"
-          text = "#{exception_count} exceptions, #{failed_jobs} failed jobs"
-        elsif warning_count > 0 || failed_jobs > 5
+          text = "#{exception_count} exceptions"
+        else
           badge_class = "newshound-warning"
           parts = []
           parts << "#{warning_count} warnings" if warning_count > 0
-          parts << "#{failed_jobs} failed jobs" if failed_jobs > 5
+          parts << "#{failed_jobs} failed jobs" if failed_jobs > threshold
           text = parts.join(", ")
-        else
-          badge_class = "newshound-success"
-          text = "All clear"
         end
 
         %(<span class="newshound-badge #{badge_class}">#{text}</span>)
