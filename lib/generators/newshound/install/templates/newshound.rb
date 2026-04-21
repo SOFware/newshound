@@ -19,6 +19,11 @@ Newshound.configure do |config|
   # config.job_source = :que # or a custom adapter instance
   # See Newshound::Jobs::Base for the adapter interface
 
+  # Number of failed jobs at or below which the banner is suppressed
+  # Set higher if your app tolerates occasional background job failures
+  # Default is 0 (any failed job triggers the banner)
+  # config.failed_jobs_threshold = 0
+
   # User roles that are authorized to view the Newshound banner
   # These should match the role values in your User model
   # Default is [:developer, :super_user]

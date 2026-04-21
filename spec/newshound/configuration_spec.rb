@@ -3,6 +3,17 @@
 RSpec.describe Newshound::Configuration do
   subject(:config) { described_class.new }
 
+  describe "#failed_jobs_threshold" do
+    it "defaults to 0" do
+      expect(config.failed_jobs_threshold).to eq(0)
+    end
+
+    it "can be set to a custom value" do
+      config.failed_jobs_threshold = 10
+      expect(config.failed_jobs_threshold).to eq(10)
+    end
+  end
+
   describe "link configuration" do
     describe "#exception_links" do
       it "defaults to an empty hash" do

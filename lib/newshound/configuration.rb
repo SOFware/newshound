@@ -6,6 +6,7 @@ module Newshound
       :current_user_method, :authorization_block, :exception_source,
       :exception_source_config,
       :warning_source, :warning_limit, :job_source,
+      :failed_jobs_threshold,
       :exception_links, :job_links, :warning_links
 
     def initialize
@@ -19,6 +20,7 @@ module Newshound
       @warning_source = nil
       @warning_limit = 10
       @job_source = nil
+      @failed_jobs_threshold = 0
       @exception_links = {}
       @job_links = {}
       @warning_links = {}
