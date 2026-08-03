@@ -80,7 +80,7 @@ module Newshound
       def render_banner(exception_data, job_data, warning_data = {})
         <<~HTML
           #{render_styles}
-          <div id="newshound-banner" class="newshound-banner newshound-collapsed newshound-#{Newshound.configuration.position}">
+          <div id="newshound-banner" class="#{positioned_class(:banner)} newshound-collapsed">
             <div class="newshound-header" onclick="document.getElementById('newshound-banner').classList.toggle('newshound-collapsed'); window.newshoundUpdatePadding();">
               <span class="newshound-title">
                 🐕 Newshound
@@ -91,7 +91,7 @@ module Newshound
                 <span class="newshound-toggle">▼</span>
               </span>
             </div>
-            <div class="newshound-content">
+            <div class="#{positioned_class(:content)}">
               #{render_exceptions(exception_data)}
               #{render_warnings(warning_data)}
               #{render_jobs(job_data)}
@@ -193,22 +193,67 @@ module Newshound
         <<~CSS
           <style id="newshound-styles">
             #{render_body_padding_styles}
+            /* Everything that varies by position or state is a custom property set
+               on the banner. The rules below inherit those values, so each element
+               is styled by its own flat selector instead of by its ancestry. */
             .newshound-banner {
+              --newshound-content-max-height: 400px;
+              --newshound-content-overflow: auto;
+              --newshound-divider: 1px solid rgba(255,255,255,0.2);
+              --newshound-header-display: flex;
+              --newshound-restore-display: none;
+              --newshound-corner-radius: 0;
               position: fixed;
-              top: 0;
               left: 0;
               right: 0;
               background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
               color: white;
               z-index: 10000;
-              box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+              box-shadow: var(--newshound-shadow);
+              border-radius: var(--newshound-corner-radius);
               font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
               font-size: 14px;
+            }
+            .newshound-banner-top {
+              --newshound-shadow: 0 2px 10px rgba(0,0,0,0.3);
+              --newshound-toggle-rotation: 0deg;
+              --newshound-collapsed-toggle-rotation: -90deg;
+              --newshound-minimized-shadow: -2px 2px 6px rgba(0,0,0,0.2);
+              --newshound-minimized-corner-radius: 0 0 0 8px;
+              top: 0;
+            }
+            /* Laid out in reverse so the header still sits on the viewport edge and
+               the panel expands upward into the page. */
+            .newshound-banner-bottom {
+              --newshound-shadow: 0 -2px 10px rgba(0,0,0,0.3);
+              --newshound-toggle-rotation: 180deg;
+              --newshound-collapsed-toggle-rotation: 270deg;
+              --newshound-minimized-shadow: -2px -2px 6px rgba(0,0,0,0.2);
+              --newshound-minimized-corner-radius: 8px 0 0 0;
+              bottom: 0;
+              display: flex;
+              flex-direction: column-reverse;
+            }
+            .newshound-banner.newshound-collapsed {
+              --newshound-content-max-height: 0px;
+              --newshound-content-overflow: hidden;
+              --newshound-divider: none;
+              --newshound-toggle-rotation: var(--newshound-collapsed-toggle-rotation);
+            }
+            .newshound-banner.newshound-minimized {
+              --newshound-content-max-height: 0px;
+              --newshound-content-overflow: hidden;
+              --newshound-divider: none;
+              --newshound-header-display: none;
+              --newshound-restore-display: flex;
+              --newshound-shadow: var(--newshound-minimized-shadow);
+              --newshound-corner-radius: var(--newshound-minimized-corner-radius);
+              left: auto;
             }
             .newshound-header {
               padding: 12px 20px;
               cursor: pointer;
-              display: flex;
+              display: var(--newshound-header-display, flex);
               justify-content: space-between;
               align-items: center;
               user-select: none;
@@ -238,20 +283,20 @@ module Newshound
             }
             .newshound-toggle {
               transition: transform 0.3s;
-            }
-            .newshound-banner.newshound-collapsed .newshound-toggle {
-              transform: rotate(-90deg);
+              transform: rotate(var(--newshound-toggle-rotation, 0deg));
             }
             .newshound-content {
-              max-height: 400px;
-              overflow-y: auto;
-              border-top: 1px solid rgba(255,255,255,0.2);
+              max-height: var(--newshound-content-max-height, 400px);
+              overflow: var(--newshound-content-overflow, auto);
               transition: max-height 0.3s ease-out;
             }
-            .newshound-banner.newshound-collapsed .newshound-content {
-              max-height: 0;
-              overflow: hidden;
-              border-top: none;
+            /* The divider sits between the header and the panel, which means the
+               top edge of the content at the top and its bottom edge at the bottom. */
+            .newshound-content-top {
+              border-top: var(--newshound-divider);
+            }
+            .newshound-content-bottom {
+              border-bottom: var(--newshound-divider);
             }
             .newshound-section {
               padding: 15px 20px;
@@ -336,18 +381,7 @@ module Newshound
               opacity: 1;
             }
             .newshound-restore {
-              display: none;
-            }
-            .newshound-banner.newshound-minimized .newshound-header {
-              display: none;
-            }
-            .newshound-banner.newshound-minimized .newshound-content {
-              max-height: 0;
-              overflow: hidden;
-              border-top: none;
-            }
-            .newshound-banner.newshound-minimized .newshound-restore {
-              display: flex;
+              display: var(--newshound-restore-display, none);
               align-items: center;
               justify-content: center;
               width: 36px;
@@ -356,42 +390,20 @@ module Newshound
               font-size: 16px;
               user-select: none;
             }
-            .newshound-banner.newshound-minimized {
-              left: auto;
-              border-radius: 0 0 0 8px;
-              box-shadow: -2px 2px 6px rgba(0,0,0,0.2);
-            }
-            .newshound-banner.newshound-bottom {
-              top: auto;
-              bottom: 0;
-              display: flex;
-              flex-direction: column-reverse;
-              box-shadow: 0 -2px 10px rgba(0,0,0,0.3);
-            }
-            .newshound-bottom .newshound-content {
-              border-top: none;
-              border-bottom: 1px solid rgba(255,255,255,0.2);
-            }
-            .newshound-bottom.newshound-collapsed .newshound-content,
-            .newshound-bottom.newshound-minimized .newshound-content {
-              border-bottom: none;
-            }
-            .newshound-bottom .newshound-toggle {
-              transform: rotate(180deg);
-            }
-            .newshound-bottom.newshound-collapsed .newshound-toggle {
-              transform: rotate(270deg);
-            }
-            .newshound-bottom.newshound-minimized {
-              border-radius: 8px 0 0 0;
-              box-shadow: -2px -2px 6px rgba(0,0,0,0.2);
-            }
           </style>
         CSS
       end
 
       def bottom?
         Newshound.configuration.position == :bottom
+      end
+
+      # Position is settled before a byte of HTML goes out, so elements that differ
+      # between the two edges say so themselves -- "newshound-content
+      # newshound-content-bottom" -- rather than making the stylesheet work it out
+      # from an ancestor.
+      def positioned_class(name)
+        "newshound-#{name} newshound-#{name}-#{Newshound.configuration.position}"
       end
 
       # Only a top banner pushes the page down; a bottom one floats over it.
