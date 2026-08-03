@@ -144,7 +144,9 @@ The banner header carries three buttons, all keyboard accessible:
 
 Closing is a per-page escape hatch, not an opt-out: the next page shows the banner as the minimized pill, so you still get the signal. Minimize and close both persist to `localStorage` under `newshound-minimized`, and restoring from the pill clears it.
 
-To turn the banner off entirely, set `config.enabled = false` or narrow `authorized_roles`.
+Minimizing is not permanent either. Newshound stores a signature of what you were looking at when you minimized — the exception count, the newest exception id, the same two for warnings, and the failed job count — under `newshound-signature`. When any of those numbers is higher on a later page, something has gone wrong that you have not seen, so the banner comes back as the thin bar and the stored flag is dropped. Numbers that only fall — someone worked through the backlog — are not news, and the pill stays put.
+
+There is no setting to make minimize stick. A banner you can silence forever is one that eventually leaves you blind, which is the failure this whole thing exists to prevent. To turn the banner off entirely, set `config.enabled = false` or narrow `authorized_roles`.
 
 ## User Requirements
 

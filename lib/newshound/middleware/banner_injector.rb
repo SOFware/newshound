@@ -82,7 +82,7 @@ module Newshound
       def render_banner(exception_data, job_data, warning_data = {})
         <<~HTML
           #{render_styles}
-          <div id="newshound-banner" class="#{positioned_class(:banner)} newshound-banner-collapsed">
+          <div id="newshound-banner" class="#{positioned_class(:banner)} newshound-banner-collapsed" data-newshound-signature="#{escape_html(banner_signature(exception_data, job_data, warning_data))}">
             <div class="newshound-header" data-newshound-action="toggle">
               <span class="newshound-title">
                 🐕 Newshound
@@ -101,6 +101,35 @@ module Newshound
           </div>
           #{render_script}
         HTML
+      end
+
+      # Two sections, compared by different rules. The counts only rise when there is
+      # something unseen, so the script reads a rise as news and a fall as cleanup.
+      # The id lists catch one item arriving while another is cleared, which leaves
+      # the counts unchanged, and they work for sources whose ids are not numbers.
+      def banner_signature(exception_data, job_data, warning_data)
+        exceptions = exception_data[:exceptions] || []
+        warnings = warning_data[:warnings] || []
+
+        [
+          [exceptions.length, warnings.length, actionable_jobs(job_data)].join(","),
+          item_ids(exceptions),
+          item_ids(warnings)
+        ].join("|")
+      end
+
+      # Mirror what the banner itself treats as worth showing: jobs at or below the
+      # threshold never raise it, so a rise within that tolerance is not news either.
+      # Adapters predating the failing/expired split report :failed alone.
+      def actionable_jobs(job_data)
+        stats = job_data[:queue_stats] || {}
+        count = stats.fetch(:expired) { stats[:failed] } || 0
+
+        (count > Newshound.configuration.failed_jobs_threshold) ? count : 0
+      end
+
+      def item_ids(items)
+        items.filter_map { |item| item[:id] }.join(",")
       end
 
       def render_header_controls
@@ -127,14 +156,24 @@ module Newshound
                 return document.getElementById('newshound-banner');
               }
 
+              // Read once: closing detaches the banner, and the flag is written
+              // after that.
+              var signature = banner().getAttribute('data-newshound-signature');
+
               // localStorage throws in some private-browsing modes, and a throw here
               // would leave a control half-applied.
               function rememberMinimized() {
-                try { localStorage.setItem('newshound-minimized', '1'); } catch (e) {}
+                try {
+                  localStorage.setItem('newshound-minimized', '1');
+                  localStorage.setItem('newshound-signature', signature);
+                } catch (e) {}
               }
 
               function forgetMinimized() {
-                try { localStorage.removeItem('newshound-minimized'); } catch (e) {}
+                try {
+                  localStorage.removeItem('newshound-minimized');
+                  localStorage.removeItem('newshound-signature');
+                } catch (e) {}
               }
 
               function wasMinimized() {
@@ -145,10 +184,63 @@ module Newshound
                 }
               }
 
-              // Restored before the padding script below takes its first measurement.
+              // Any number that has risen since the developer minimized the banner
+              // is a problem they have not seen yet. Anything else — a number that
+              // fell, or a signature this version cannot read — is not news.
+              function hasNewNews() {
+                var seen;
+                try { seen = localStorage.getItem('newshound-signature'); } catch (e) {}
+                if (!seen) return true;
+
+                var now = signature.split('|');
+                var before = seen.split('|');
+                if (now.length !== before.length) return true;
+
+                if (hasRisen(now[0], before[0])) return true;
+
+                for (var s = 1; s < now.length; s++) {
+                  if (hasUnseenId(now[s], before[s])) return true;
+                }
+
+                return false;
+              }
+
+              function hasRisen(counts, seenCounts) {
+                var now = counts.split(',');
+                var before = seenCounts.split(',');
+                if (now.length !== before.length) return true;
+
+                for (var i = 0; i < now.length; i++) {
+                  if (Number(now[i]) > Number(before[i])) return true;
+                }
+
+                return false;
+              }
+
+              // Clearing an item leaves every remaining id already seen, so only an
+              // arrival counts.
+              function hasUnseenId(current, seen) {
+                if (!current) return false;
+
+                var known = seen ? seen.split(',') : [];
+                var ids = current.split(',');
+
+                for (var i = 0; i < ids.length; i++) {
+                  if (known.indexOf(ids[i]) === -1) return true;
+                }
+
+                return false;
+              }
+
+              // Applied before the padding script below takes its first measurement.
+              // A minimize lasts only until the next problem the developer has not
+              // seen, so it cannot leave them blind.
               if (wasMinimized()) {
-                var stored = banner();
-                if (stored) stored.classList.add('newshound-banner-minimized');
+                if (hasNewNews()) {
+                  forgetMinimized();
+                } else {
+                  banner().classList.add('newshound-banner-minimized');
+                }
               }
 
               #{render_controls_script}
@@ -652,6 +744,7 @@ module Newshound
 
       def escape_html(text)
         return +"" unless text.present?
+
         text.to_s
           .gsub("&", "&amp;")
           .gsub("<", "&lt;")

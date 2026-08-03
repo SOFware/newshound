@@ -441,6 +441,127 @@ RSpec.describe Newshound::Middleware::BannerInjector do
     end
   end
 
+  describe "auto restore" do
+    before do
+      allow_any_instance_of(Newshound::ExceptionReporter).to receive(:banner_data).and_return(
+        exceptions: [{id: 42, title: "RuntimeError", message: "boom", location: "app.rb:1", time: "12:00 PM"}]
+      )
+    end
+
+    def signature(html)
+      html[/data-newshound-signature="([^"]*)"/, 1]
+    end
+
+    it "renders the exception count and its ids" do
+      expect(signature(response_body(env))).to eq("1,0,0|42|")
+    end
+
+    it "renders the warning count and its ids" do
+      allow_any_instance_of(Newshound::WarningReporter).to receive(:banner_data).and_return(
+        warnings: [{id: 7, title: "Deprecation", message: "old", location: "legacy.rb:1", time: "12:00 PM"}]
+      )
+
+      expect(signature(response_body(env))).to eq("1,1,0|42|7")
+    end
+
+    it "renders the expired job count" do
+      allow_any_instance_of(Newshound::JobReporter).to receive(:banner_data).and_return(queue_stats: {expired: 3})
+
+      expect(signature(response_body(env))).to eq("1,0,3|42|")
+    end
+
+    # A retry is not news, so it must never un-minimize the banner.
+    it "ignores jobs that are still retrying" do
+      allow_any_instance_of(Newshound::JobReporter).to receive(:banner_data).and_return(queue_stats: {failing: 9, expired: 0})
+
+      expect(signature(response_body(env))).to eq("1,0,0|42|")
+    end
+
+    # The banner stays hidden at or below the threshold, so a rise inside it is not
+    # news either.
+    it "ignores expired jobs within the configured threshold" do
+      configuration.failed_jobs_threshold = 5
+      allow_any_instance_of(Newshound::JobReporter).to receive(:banner_data).and_return(queue_stats: {expired: 3})
+
+      expect(signature(response_body(env))).to eq("1,0,0|42|")
+    end
+
+    it "counts expired jobs once they pass the threshold" do
+      configuration.failed_jobs_threshold = 5
+      allow_any_instance_of(Newshound::JobReporter).to receive(:banner_data).and_return(queue_stats: {expired: 6})
+
+      expect(signature(response_body(env))).to eq("1,0,6|42|")
+    end
+
+    it "falls back to the failed count for adapters predating the split" do
+      allow_any_instance_of(Newshound::JobReporter).to receive(:banner_data).and_return(queue_stats: {failed: 3})
+
+      expect(signature(response_body(env))).to eq("1,0,3|42|")
+    end
+
+    # Bugsink ids look like "uuid-1", so a numeric reading collapses them all to 0.
+    it "keeps non-numeric ids intact" do
+      allow_any_instance_of(Newshound::ExceptionReporter).to receive(:banner_data).and_return(
+        exceptions: [{id: "uuid-1", title: "RuntimeError", message: "boom", location: "app.rb:1", time: "12:00 PM"}]
+      )
+
+      expect(signature(response_body(env))).to eq("1,0,0|uuid-1|")
+    end
+
+    it "stores the signature alongside the minimized flag" do
+      html = response_body(env)
+
+      expect(html).to include("localStorage.setItem('newshound-signature', signature)")
+    end
+
+    it "clears the stored signature whenever the minimized flag is cleared" do
+      html = response_body(env)
+
+      expect(html).to include("localStorage.removeItem('newshound-signature')")
+    end
+
+    it "treats a risen number as news and a fallen one as nothing" do
+      html = response_body(env)
+
+      expect(html).to include("if (Number(now[i]) > Number(before[i])) return true;")
+    end
+
+    it "treats a missing stored signature as news" do
+      html = response_body(env)
+
+      expect(html).to match(/if \(!seen\) return true;/)
+    end
+
+    it "drops the minimized flag rather than leaving it stale when news arrives" do
+      html = response_body(env)
+
+      expect(html).to match(/if \(hasNewNews\(\)\) \{\s*forgetMinimized\(\);/)
+    end
+
+    it "honors the minimized flag only when nothing new has arrived" do
+      html = response_body(env)
+
+      expect(html).to match(/\} else \{\s*banner\(\)\.classList\.add\('newshound-banner-minimized'\);/)
+    end
+
+    it "reads the signature before any control can detach the banner" do
+      html = response_body(env)
+
+      read_at = html.index("var signature = banner().getAttribute")
+
+      expect(read_at).to be < html.index("el.remove();")
+      expect(read_at).to be < html.index("if (wasMinimized())")
+    end
+
+    context "when position is :bottom" do
+      before { configuration.position = :bottom }
+
+      it "renders the same signature" do
+        expect(signature(response_body(env))).to eq("1,0,0|42|")
+      end
+    end
+  end
+
   describe "banner controls" do
     before do
       allow_any_instance_of(Newshound::ExceptionReporter).to receive(:banner_data).and_return(
@@ -558,9 +679,9 @@ RSpec.describe Newshound::Middleware::BannerInjector do
       end
     end
 
-    # Position and state are carried by classes and custom properties on the
-    # elements themselves, so no rule has to walk down from an ancestor to find
-    # what it styles.
+    # Position and state are carried by classes and custom properties on the elements
+    # themselves, so no rule has to walk down from an ancestor to find what it
+    # styles.
     it "styles every element without reaching through the markup" do
       Newshound::Configuration::POSITIONS.each do |position|
         configuration.position = position
@@ -571,9 +692,9 @@ RSpec.describe Newshound::Middleware::BannerInjector do
       end
     end
 
-    # A variant is named for what it modifies -- newshound-content-bottom rather
-    # than newshound-content plus newshound-bottom -- so no rule has to stack
-    # classes to identify its target.
+    # A variant is named for what it modifies -- newshound-content-bottom rather than
+    # newshound-content plus newshound-bottom -- so no rule has to stack classes to
+    # identify its target.
     it "identifies every element by a single class" do
       Newshound::Configuration::POSITIONS.each do |position|
         configuration.position = position
