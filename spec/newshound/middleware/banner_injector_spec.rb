@@ -320,19 +320,21 @@ RSpec.describe Newshound::Middleware::BannerInjector do
     it "includes a minimize button in the header" do
       html = response_body(env)
 
-      expect(html).to include("newshound-minimize")
+      expect(html).to include(%(class="newshound-minimize"))
     end
 
     it "includes minimized state CSS that hides everything except the toggle" do
       html = response_body(env)
 
-      expect(html).to include("newshound-minimized")
+      expect(html).to include(".newshound-banner-minimized {")
+      expect(html).to include("--newshound-header-display: none;")
+      expect(html).to include("--newshound-restore-display: flex;")
     end
 
-    it "sets body padding to 0 when minimized via script" do
+    it "recalculates body padding when minimized via script" do
       html = response_body(env)
 
-      expect(html).to include("newshound-minimized")
+      expect(html).to include("classList.add('newshound-banner-minimized'); localStorage")
       expect(html).to include("newshoundUpdatePadding")
     end
 
@@ -422,6 +424,19 @@ RSpec.describe Newshound::Middleware::BannerInjector do
 
         expect(nested).to be_empty,
           "expected flat selectors for position :#{position}, found #{nested.inspect}"
+      end
+    end
+
+    # A variant is named for what it modifies -- newshound-content-bottom rather
+    # than newshound-content plus newshound-bottom -- so no rule has to stack
+    # classes to identify its target.
+    it "identifies every element by a single class" do
+      Newshound::Configuration::POSITIONS.each do |position|
+        configuration.position = position
+        stacked = banner_selectors(response_body(env)).grep(/\.[\w-]+\./)
+
+        expect(stacked).to be_empty,
+          "expected one class per selector for position :#{position}, found #{stacked.inspect}"
       end
     end
 

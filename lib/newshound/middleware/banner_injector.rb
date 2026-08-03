@@ -80,14 +80,14 @@ module Newshound
       def render_banner(exception_data, job_data, warning_data = {})
         <<~HTML
           #{render_styles}
-          <div id="newshound-banner" class="#{positioned_class(:banner)} newshound-collapsed">
-            <div class="newshound-header" onclick="document.getElementById('newshound-banner').classList.toggle('newshound-collapsed'); window.newshoundUpdatePadding();">
+          <div id="newshound-banner" class="#{positioned_class(:banner)} newshound-banner-collapsed">
+            <div class="newshound-header" onclick="document.getElementById('newshound-banner').classList.toggle('newshound-banner-collapsed'); window.newshoundUpdatePadding();">
               <span class="newshound-title">
                 🐕 Newshound
                 #{summary_badge(exception_data, job_data, warning_data)}
               </span>
               <span class="newshound-header-controls">
-                <span class="newshound-minimize" onclick="event.stopPropagation(); document.getElementById('newshound-banner').classList.add('newshound-minimized'); localStorage.setItem('newshound-minimized','1'); window.newshoundUpdatePadding();" title="Minimize">−</span>
+                <span class="newshound-minimize" onclick="event.stopPropagation(); document.getElementById('newshound-banner').classList.add('newshound-banner-minimized'); localStorage.setItem('newshound-minimized','1'); window.newshoundUpdatePadding();" title="Minimize">−</span>
                 <span class="newshound-toggle">▼</span>
               </span>
             </div>
@@ -96,7 +96,7 @@ module Newshound
               #{render_warnings(warning_data)}
               #{render_jobs(job_data)}
             </div>
-            <div class="newshound-restore" onclick="document.getElementById('newshound-banner').classList.remove('newshound-minimized'); localStorage.removeItem('newshound-minimized'); window.newshoundUpdatePadding();" title="Restore Newshound">
+            <div class="newshound-restore" onclick="document.getElementById('newshound-banner').classList.remove('newshound-banner-minimized'); localStorage.removeItem('newshound-minimized'); window.newshoundUpdatePadding();" title="Restore Newshound">
               🐕
             </div>
           </div>
@@ -110,7 +110,7 @@ module Newshound
             (function() {
               // Restore minimized state from localStorage
               if (localStorage.getItem('newshound-minimized')) {
-                document.getElementById('newshound-banner').classList.add('newshound-minimized');
+                document.getElementById('newshound-banner').classList.add('newshound-banner-minimized');
               }
 
               #{render_padding_script}
@@ -234,13 +234,14 @@ module Newshound
               display: flex;
               flex-direction: column-reverse;
             }
-            .newshound-banner.newshound-collapsed {
+            /* State comes after position so it wins the properties they share. */
+            .newshound-banner-collapsed {
               --newshound-content-max-height: 0px;
               --newshound-content-overflow: hidden;
               --newshound-divider: none;
               --newshound-toggle-rotation: var(--newshound-collapsed-toggle-rotation);
             }
-            .newshound-banner.newshound-minimized {
+            .newshound-banner-minimized {
               --newshound-content-max-height: 0px;
               --newshound-content-overflow: hidden;
               --newshound-divider: none;
