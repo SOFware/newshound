@@ -69,6 +69,30 @@ end
 
 Any value other than `:top` or `:bottom` raises an `ArgumentError`.
 
+### Job Statistics
+
+Que tracks two distinct trouble states, and Newshound reports them separately:
+
+- **Failing** — the job errored but still has retries left. These usually clear themselves and are not worth an alert.
+- **Expired** — the job ran out of retries. Nothing will run it again until a person does something.
+
+Only expired jobs trigger the banner. `config.expired_jobs_threshold` sets how many are tolerated before it appears:
+
+```ruby
+Newshound.configure do |config|
+  # Show the banner as soon as a single job expires
+  config.expired_jobs_threshold = 0
+end
+```
+
+The default is 0. Since an expired job is already dead, raising the threshold means hiding jobs that need attention — raise it only if you have a backlog you have deliberately decided to ignore.
+
+`failed_jobs_threshold` is the old name for this setting and still works. It used to gate every errored job, retrying ones included, so a value chosen to absorb transient retries is now suppressing that many genuinely dead jobs. Drop it to 0 when you rename it.
+
+`queue_statistics` and `job_counts_by_type` also still return a `:failed` key, the union of failing and expired. Its value is unchanged from earlier versions, but it is deprecated — read `:failing` and `:expired` instead.
+
+Job links follow the same split. `job_links[:failing]` and `job_links[:expired]` point the two stats at your dashboard; `job_links[:failed]` is accepted as the old name for `:failing`.
+
 ### Advanced: Custom Authorization
 
 If the default role-based authorization doesn't fit your needs, you can provide custom logic:
@@ -128,7 +152,8 @@ The banner displays:
 ### Job Queue Section
 - **Ready to Run**: Jobs waiting to execute
 - **Scheduled**: Jobs scheduled for future execution
-- **Failed**: Jobs in retry queue
+- **Failing**: Jobs that errored and will retry
+- **Expired**: Jobs that ran out of retries
 - **Completed Today**: Successfully finished jobs
 - Color-coded health status
 

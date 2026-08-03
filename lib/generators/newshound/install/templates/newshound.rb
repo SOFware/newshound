@@ -19,10 +19,11 @@ Newshound.configure do |config|
   # config.job_source = :que # or a custom adapter instance
   # See Newshound::Jobs::Base for the adapter interface
 
-  # Number of failed jobs at or below which the banner is suppressed
-  # Set higher if your app tolerates occasional background job failures
-  # Default is 0 (any failed job triggers the banner)
-  # config.failed_jobs_threshold = 0
+  # Number of expired jobs at or below which the banner is suppressed
+  # Expired jobs are out of retries, so 0 is the recommended value
+  # Jobs that are still retrying never trigger the banner
+  # Default is 0 (any expired job triggers the banner)
+  # config.expired_jobs_threshold = 0
 
   # Which viewport edge the banner attaches to, :top or :bottom
   # Use :bottom to keep the banner clear of fixed headers and sticky navigation
@@ -52,7 +53,8 @@ Newshound.configure do |config|
   #   index: "/background_jobs",
   #   show: "/background_jobs/jobs/:id",
   #   scheduled: "/background_jobs/scheduled",
-  #   failed: "/background_jobs/failed",
+  #   failing: "/background_jobs/failing",
+  #   expired: "/background_jobs/expired",
   #   completed: "/background_jobs/completed"
   # }
   #

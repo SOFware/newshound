@@ -8,8 +8,13 @@ module Newshound
       :current_user_method, :authorization_block, :exception_source,
       :exception_source_config,
       :warning_source, :warning_limit, :job_source,
-      :failed_jobs_threshold,
+      :expired_jobs_threshold,
       :exception_links, :job_links, :warning_links
+
+    # The pre-1.0.4 name. It now gates expired jobs rather than every errored job,
+    # so a value tuned to absorb retries is worth revisiting.
+    alias_method :failed_jobs_threshold, :expired_jobs_threshold
+    alias_method :failed_jobs_threshold=, :expired_jobs_threshold=
 
     attr_reader :position
 
@@ -24,7 +29,7 @@ module Newshound
       @warning_source = nil
       @warning_limit = 10
       @job_source = nil
-      @failed_jobs_threshold = 0
+      @expired_jobs_threshold = 0
       @exception_links = {}
       @job_links = {}
       @warning_links = {}

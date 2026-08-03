@@ -22,7 +22,7 @@ RSpec.describe Newshound::Jobs::Base do
   describe "#format_for_banner" do
     it "delegates to #queue_statistics" do
       allow(base).to receive(:queue_statistics).and_return(
-        ready: 1, scheduled: 2, failed: 3, finished_today: 4
+        ready: 1, scheduled: 2, failing: 3, expired: 4, failed: 7, finished_today: 5
       )
 
       result = base.format_for_banner
@@ -31,10 +31,22 @@ RSpec.describe Newshound::Jobs::Base do
         queue_stats: {
           ready_to_run: 1,
           scheduled: 2,
-          failed: 3,
-          completed_today: 4
+          failing: 3,
+          expired: 4,
+          failed: 7,
+          completed_today: 5
         }
       )
+    end
+
+    it "falls back to :failed when an adapter reports no expired count" do
+      allow(base).to receive(:queue_statistics).and_return(
+        ready: 1, scheduled: 2, failed: 3, finished_today: 4
+      )
+
+      result = base.format_for_banner
+
+      expect(result[:queue_stats]).to include(expired: 3, failing: nil)
     end
   end
 end

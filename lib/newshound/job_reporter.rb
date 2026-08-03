@@ -60,11 +60,18 @@ module Newshound
       lines = ["*Job Counts by Type:*"]
 
       counts.each do |job_class, stats|
-        status_emoji = (stats[:failed] > 0) ? "⚠️" : "✅"
-        lines << "• #{status_emoji} *#{job_class}*: #{stats[:total]} total (#{stats[:success]} success, #{stats[:failed]} failed)"
+        breakdown = "#{stats[:success]} success, #{stats[:failing].to_i} failing, #{stats[:expired].to_i} expired"
+        lines << "• #{job_status_emoji(stats)} *#{job_class}*: #{stats[:total]} total (#{breakdown})"
       end
 
       lines.join("\n")
+    end
+
+    def job_status_emoji(stats)
+      return "⚠️" if stats[:expired].to_i > 0
+      return "🟡" if stats[:failing].to_i > 0
+
+      "✅"
     end
 
     def queue_health_section
@@ -80,17 +87,21 @@ module Newshound
     end
 
     def format_queue_health(stats)
-      health_emoji = if stats[:failed] > 10
+      failing = stats[:failing].to_i
+      expired = stats[:expired].to_i
+
+      health_emoji = if expired > 0
         "🔴"
       else
-        (stats[:failed] > 5) ? "🟡" : "🟢"
+        (failing > 0) ? "🟡" : "🟢"
       end
 
       <<~TEXT
         *Queue Health #{health_emoji}*
         • *Ready to Run:* #{stats[:ready]}
         • *Scheduled:* #{stats[:scheduled]}
-        • *Failed (Retry Queue):* #{stats[:failed]}
+        • *Failing (Will Retry):* #{failing}
+        • *Expired (Out of Retries):* #{expired}
         • *Completed Today:* #{stats[:finished_today]}
       TEXT
     end

@@ -111,6 +111,8 @@ RSpec.describe Newshound::Middleware::BannerInjector do
         queue_stats: {
           ready_to_run: 3,
           scheduled: 5,
+          failing: 4,
+          expired: 2,
           failed: 6,
           completed_today: 15
         }
@@ -127,7 +129,8 @@ RSpec.describe Newshound::Middleware::BannerInjector do
 
         expect(html).to include("Ready")
         expect(html).to include("Scheduled")
-        expect(html).to include("Failed")
+        expect(html).to include("Failing")
+        expect(html).to include("Expired")
         expect(html).to include("Completed Today")
         expect(html).not_to match(%r{<a [^>]*class="newshound-stat})
       end
@@ -163,15 +166,39 @@ RSpec.describe Newshound::Middleware::BannerInjector do
       end
     end
 
-    context "when job_links failed is configured" do
+    context "when job_links failing is configured" do
+      before do
+        configuration.job_links = {failing: "/background_jobs/failing"}
+      end
+
+      it "links the Failing stat" do
+        html = response_body(env)
+
+        expect(html).to match(%r{<a [^>]*href="/background_jobs/failing"[^>]*>.*Failing}m)
+      end
+    end
+
+    context "when job_links expired is configured" do
+      before do
+        configuration.job_links = {expired: "/background_jobs/expired"}
+      end
+
+      it "links the Expired stat" do
+        html = response_body(env)
+
+        expect(html).to match(%r{<a [^>]*href="/background_jobs/expired"[^>]*>.*Expired}m)
+      end
+    end
+
+    context "when only the deprecated job_links failed key is configured" do
       before do
         configuration.job_links = {failed: "/background_jobs/failed"}
       end
 
-      it "links the Failed stat" do
+      it "links the Failing stat to it" do
         html = response_body(env)
 
-        expect(html).to match(%r{<a [^>]*href="/background_jobs/failed"[^>]*>.*Failed}m)
+        expect(html).to match(%r{<a [^>]*href="/background_jobs/failed"[^>]*>.*Failing}m)
       end
     end
 
@@ -192,7 +219,8 @@ RSpec.describe Newshound::Middleware::BannerInjector do
         configuration.job_links = {
           index: "/background_jobs",
           scheduled: "/background_jobs/scheduled",
-          failed: "/background_jobs/failed",
+          failing: "/background_jobs/failing",
+          expired: "/background_jobs/expired",
           completed: "/background_jobs/completed"
         }
       end
@@ -202,7 +230,8 @@ RSpec.describe Newshound::Middleware::BannerInjector do
 
         expect(html).to match(%r{<a [^>]*href="/background_jobs"[^>]*>.*Job Queue Status}m)
         expect(html).to match(%r{<a [^>]*href="/background_jobs/scheduled"[^>]*>.*Scheduled}m)
-        expect(html).to match(%r{<a [^>]*href="/background_jobs/failed"[^>]*>.*Failed}m)
+        expect(html).to match(%r{<a [^>]*href="/background_jobs/failing"[^>]*>.*Failing}m)
+        expect(html).to match(%r{<a [^>]*href="/background_jobs/expired"[^>]*>.*Expired}m)
         expect(html).to match(%r{<a [^>]*href="/background_jobs/completed"[^>]*>.*Completed Today}m)
       end
     end
@@ -279,12 +308,12 @@ RSpec.describe Newshound::Middleware::BannerInjector do
       expect(body.first).to eq("<html><body>Hello</body></html>")
     end
 
-    context "when failed jobs exceed the configured threshold" do
+    context "when expired jobs exceed the configured threshold" do
       before do
         allow_any_instance_of(Newshound::JobReporter).to receive(:banner_data).and_return(
-          queue_stats: {failed: 3}
+          queue_stats: {expired: 3}
         )
-        configuration.failed_jobs_threshold = 2
+        configuration.expired_jobs_threshold = 2
       end
 
       it "injects the banner" do
@@ -292,14 +321,34 @@ RSpec.describe Newshound::Middleware::BannerInjector do
 
         expect(html).to include("newshound-banner")
       end
+
+      it "names the expired jobs in the summary badge" do
+        html = response_body(env)
+
+        expect(html).to include("3 expired jobs")
+      end
     end
 
-    context "when failed jobs are at or below the configured threshold" do
+    context "when expired jobs are at or below the configured threshold" do
       before do
         allow_any_instance_of(Newshound::JobReporter).to receive(:banner_data).and_return(
-          queue_stats: {failed: 2}
+          queue_stats: {expired: 2}
         )
-        configuration.failed_jobs_threshold = 2
+        configuration.expired_jobs_threshold = 2
+      end
+
+      it "does not inject the banner" do
+        _status, _headers, body = middleware.call(env)
+
+        expect(body.first).not_to include("newshound-banner")
+      end
+    end
+
+    context "when jobs are failing but none have expired" do
+      before do
+        allow_any_instance_of(Newshound::JobReporter).to receive(:banner_data).and_return(
+          queue_stats: {failing: 50, expired: 0, failed: 50}
+        )
       end
 
       it "does not inject the banner" do

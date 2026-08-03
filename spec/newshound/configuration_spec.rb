@@ -3,14 +3,26 @@
 RSpec.describe Newshound::Configuration do
   subject(:config) { described_class.new }
 
-  describe "#failed_jobs_threshold" do
+  describe "#expired_jobs_threshold" do
     it "defaults to 0" do
-      expect(config.failed_jobs_threshold).to eq(0)
+      expect(config.expired_jobs_threshold).to eq(0)
     end
 
     it "can be set to a custom value" do
-      config.failed_jobs_threshold = 10
+      config.expired_jobs_threshold = 10
+      expect(config.expired_jobs_threshold).to eq(10)
+    end
+  end
+
+  describe "#failed_jobs_threshold" do
+    it "reads the expired jobs threshold" do
+      config.expired_jobs_threshold = 10
       expect(config.failed_jobs_threshold).to eq(10)
+    end
+
+    it "writes the expired jobs threshold" do
+      config.failed_jobs_threshold = 10
+      expect(config.expired_jobs_threshold).to eq(10)
     end
   end
 
@@ -57,19 +69,21 @@ RSpec.describe Newshound::Configuration do
         expect(config.job_links).to eq({})
       end
 
-      it "accepts index, show, scheduled, failed, and completed keys" do
+      it "accepts index, show, scheduled, failing, expired, and completed keys" do
         config.job_links = {
           index: "/background_jobs",
           show: "/background_jobs/jobs/:id",
           scheduled: "/background_jobs/scheduled",
-          failed: "/background_jobs/failed",
+          failing: "/background_jobs/failing",
+          expired: "/background_jobs/expired",
           completed: "/background_jobs/completed"
         }
 
         expect(config.job_links[:index]).to eq("/background_jobs")
         expect(config.job_links[:show]).to eq("/background_jobs/jobs/:id")
         expect(config.job_links[:scheduled]).to eq("/background_jobs/scheduled")
-        expect(config.job_links[:failed]).to eq("/background_jobs/failed")
+        expect(config.job_links[:failing]).to eq("/background_jobs/failing")
+        expect(config.job_links[:expired]).to eq("/background_jobs/expired")
         expect(config.job_links[:completed]).to eq("/background_jobs/completed")
       end
     end

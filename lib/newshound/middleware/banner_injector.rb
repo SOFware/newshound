@@ -68,13 +68,15 @@ module Newshound
         render_banner(exception_data, job_data, warning_data)
       end
 
+      # Only expired jobs are worth interrupting someone over. Failing jobs still
+      # have retries left and usually clear themselves.
       def notable_data?(exception_data, job_data, warning_data)
         exception_count = exception_data[:exceptions]&.length || 0
-        failed_jobs = job_data.dig(:queue_stats, :failed) || 0
+        expired_jobs = job_data.dig(:queue_stats, :expired) || 0
         warning_count = warning_data[:warnings]&.length || 0
-        threshold = Newshound.configuration.failed_jobs_threshold
+        threshold = Newshound.configuration.expired_jobs_threshold
 
-        exception_count > 0 || warning_count > 0 || failed_jobs > threshold
+        exception_count > 0 || warning_count > 0 || expired_jobs > threshold
       end
 
       def render_banner(exception_data, job_data, warning_data = {})
@@ -408,9 +410,9 @@ module Newshound
 
       def summary_badge(exception_data, job_data, warning_data = {})
         exception_count = exception_data[:exceptions]&.length || 0
-        failed_jobs = job_data.dig(:queue_stats, :failed) || 0
+        expired_jobs = job_data.dig(:queue_stats, :expired) || 0
         warning_count = warning_data[:warnings]&.length || 0
-        threshold = Newshound.configuration.failed_jobs_threshold
+        threshold = Newshound.configuration.expired_jobs_threshold
 
         if exception_count > 0
           badge_class = "newshound-error"
@@ -419,7 +421,7 @@ module Newshound
           badge_class = "newshound-warning"
           parts = []
           parts << "#{warning_count} warnings" if warning_count > 0
-          parts << "#{failed_jobs} failed jobs" if failed_jobs > threshold
+          parts << "#{expired_jobs} expired jobs" if expired_jobs > threshold
           text = parts.join(", ")
         end
 
@@ -494,13 +496,17 @@ module Newshound
           section_title
         end
 
+        # :failed is the pre-1.0.4 link key and pointed at the retry queue.
+        failing_link = links[:failing] || links[:failed]
+
         <<~HTML
           <div class="newshound-section">
             <div class="newshound-section-title">#{title_html}</div>
             <div class="newshound-grid">
               #{render_job_stat(stats[:ready_to_run] || 0, "Ready", links[:index])}
               #{render_job_stat(stats[:scheduled] || 0, "Scheduled", links[:scheduled])}
-              #{render_job_stat(stats[:failed] || 0, "Failed", links[:failed])}
+              #{render_job_stat(stats[:failing] || 0, "Failing", failing_link)}
+              #{render_job_stat(stats[:expired] || 0, "Expired", links[:expired])}
               #{render_job_stat(stats[:completed_today] || 0, "Completed Today", links[:completed])}
             </div>
           </div>
