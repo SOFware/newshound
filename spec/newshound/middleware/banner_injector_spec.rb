@@ -369,7 +369,7 @@ RSpec.describe Newshound::Middleware::BannerInjector do
     it "includes a minimize button in the header" do
       html = response_body(env)
 
-      expect(html).to include(%(class="newshound-minimize"))
+      expect(html).to include(%(class="newshound-control newshound-minimize"))
     end
 
     it "includes minimized state CSS that hides everything except the toggle" do
@@ -383,8 +383,8 @@ RSpec.describe Newshound::Middleware::BannerInjector do
     it "recalculates body padding when minimized via script" do
       html = response_body(env)
 
-      expect(html).to include("classList.add('newshound-banner-minimized'); localStorage")
-      expect(html).to include("newshoundUpdatePadding")
+      expect(html).to include("el.classList.add('newshound-banner-minimized');")
+      expect(html).to include("window.newshoundUpdatePadding();")
     end
 
     it "persists minimized state to localStorage" do
@@ -403,6 +403,256 @@ RSpec.describe Newshound::Middleware::BannerInjector do
       html = response_body(env)
 
       expect(html).to include("localStorage.removeItem('newshound-minimized')")
+    end
+
+    it "renders the minimize control as a button with an accessible name" do
+      html = response_body(env)
+
+      expect(html).to match(%r{<button[^>]*class="[^"]*newshound-minimize})
+      expect(html).to include(%(aria-label="Minimize Newshound"))
+      expect(html).to include(%(title="Minimize to a corner pill"))
+    end
+
+    it "reserves no body padding while minimized rather than measuring the pill" do
+      html = response_body(env)
+
+      expect(html).to include("classList.contains('newshound-banner-minimized')")
+      expect(html).to include("applyPadding(0)")
+    end
+
+    it "takes the header and content out of layout when minimized" do
+      html = response_body(env)
+      rule = html[/\.newshound-banner-minimized \{.*?\}/m]
+
+      expect(rule).to include("--newshound-content-display: none;")
+      expect(rule).to include("--newshound-header-display: none;")
+      expect(html).to include("display: var(--newshound-content-display, block);")
+    end
+
+    it "renders the restore control as a button with an accessible name" do
+      html = response_body(env)
+
+      expect(html).to match(%r{<button[^>]*class="[^"]*newshound-restore})
+      expect(html).to include(%(aria-label="Restore Newshound"))
+    end
+
+    it "applies the stored state before the padding script measures" do
+      html = response_body(env)
+
+      expect(html.index("if (wasMinimized())")).to be < html.index("newshoundUpdatePadding =")
+    end
+  end
+
+  describe "close" do
+    before do
+      allow_any_instance_of(Newshound::ExceptionReporter).to receive(:banner_data).and_return(
+        exceptions: [{title: "RuntimeError", message: "boom", location: "app.rb:1", time: "12:00 PM"}]
+      )
+    end
+
+    it "renders a close button with an accessible name and a title" do
+      html = response_body(env)
+
+      expect(html).to match(%r{<button[^>]*class="[^"]*newshound-close})
+      expect(html).to include(%(aria-label="Close Newshound"))
+      expect(html).to include(%(title="Close (returns minimized on the next page)"))
+    end
+
+    it "removes the banner from the DOM" do
+      html = response_body(env)
+
+      expect(html).to match(/close: function\(el\) \{\s*el\.remove\(\);/)
+    end
+
+    it "persists the minimized flag so the next page shows the pill" do
+      html = response_body(env)
+
+      expect(html).to match(/close: function\(el\) \{[^}]*rememberMinimized\(\);/m)
+      expect(html).to include("localStorage.setItem('newshound-minimized', '1')")
+    end
+
+    it "renders the stylesheet outside the banner so closing keeps the styles" do
+      html = response_body(env)
+
+      styles_at = html.index(%(<style id="newshound-styles">))
+      banner_at = html.index(%(<div id="newshound-banner"))
+
+      expect(styles_at).to be < banner_at
+      expect(html.index("</style>")).to be < banner_at
+    end
+
+    it "never persists a state that hides the banner without a restore control" do
+      html = response_body(env)
+
+      expect(html).to include("localStorage.setItem('newshound-minimized'")
+      expect(html).not_to include("localStorage.setItem('newshound-closed'")
+      expect(html).not_to include("localStorage.setItem('newshound-dismissed'")
+    end
+  end
+
+  describe "auto restore" do
+    before do
+      allow_any_instance_of(Newshound::ExceptionReporter).to receive(:banner_data).and_return(
+        exceptions: [{id: 42, title: "RuntimeError", message: "boom", location: "app.rb:1", time: "12:00 PM"}]
+      )
+    end
+
+    def signature(html)
+      html[/data-newshound-signature="([^"]*)"/, 1]
+    end
+
+    it "renders the exception count and its ids" do
+      expect(signature(response_body(env))).to eq("1,0,0|42|")
+    end
+
+    it "renders the warning count and its ids" do
+      allow_any_instance_of(Newshound::WarningReporter).to receive(:banner_data).and_return(
+        warnings: [{id: 7, title: "Deprecation", message: "old", location: "legacy.rb:1", time: "12:00 PM"}]
+      )
+
+      expect(signature(response_body(env))).to eq("1,1,0|42|7")
+    end
+
+    it "renders the expired job count" do
+      allow_any_instance_of(Newshound::JobReporter).to receive(:banner_data).and_return(queue_stats: {expired: 3})
+
+      expect(signature(response_body(env))).to eq("1,0,3|42|")
+    end
+
+    # A retry is not news, so it must never un-minimize the banner.
+    it "ignores jobs that are still retrying" do
+      allow_any_instance_of(Newshound::JobReporter).to receive(:banner_data).and_return(queue_stats: {failing: 9, expired: 0})
+
+      expect(signature(response_body(env))).to eq("1,0,0|42|")
+    end
+
+    # The banner stays hidden at or below the threshold, so a rise inside it is not
+    # news either.
+    it "ignores expired jobs within the configured threshold" do
+      configuration.failed_jobs_threshold = 5
+      allow_any_instance_of(Newshound::JobReporter).to receive(:banner_data).and_return(queue_stats: {expired: 3})
+
+      expect(signature(response_body(env))).to eq("1,0,0|42|")
+    end
+
+    it "counts expired jobs once they pass the threshold" do
+      configuration.failed_jobs_threshold = 5
+      allow_any_instance_of(Newshound::JobReporter).to receive(:banner_data).and_return(queue_stats: {expired: 6})
+
+      expect(signature(response_body(env))).to eq("1,0,6|42|")
+    end
+
+    it "falls back to the failed count for adapters predating the split" do
+      allow_any_instance_of(Newshound::JobReporter).to receive(:banner_data).and_return(queue_stats: {failed: 3})
+
+      expect(signature(response_body(env))).to eq("1,0,3|42|")
+    end
+
+    # Bugsink ids look like "uuid-1", so a numeric reading collapses them all to 0.
+    it "keeps non-numeric ids intact" do
+      allow_any_instance_of(Newshound::ExceptionReporter).to receive(:banner_data).and_return(
+        exceptions: [{id: "uuid-1", title: "RuntimeError", message: "boom", location: "app.rb:1", time: "12:00 PM"}]
+      )
+
+      expect(signature(response_body(env))).to eq("1,0,0|uuid-1|")
+    end
+
+    it "stores the signature alongside the minimized flag" do
+      html = response_body(env)
+
+      expect(html).to include("localStorage.setItem('newshound-signature', signature)")
+    end
+
+    it "clears the stored signature whenever the minimized flag is cleared" do
+      html = response_body(env)
+
+      expect(html).to include("localStorage.removeItem('newshound-signature')")
+    end
+
+    it "treats a risen number as news and a fallen one as nothing" do
+      html = response_body(env)
+
+      expect(html).to include("if (Number(now[i]) > Number(before[i])) return true;")
+    end
+
+    it "treats a missing stored signature as news" do
+      html = response_body(env)
+
+      expect(html).to match(/if \(!seen\) return true;/)
+    end
+
+    it "drops the minimized flag rather than leaving it stale when news arrives" do
+      html = response_body(env)
+
+      expect(html).to match(/if \(hasNewNews\(\)\) \{\s*forgetMinimized\(\);/)
+    end
+
+    it "honors the minimized flag only when nothing new has arrived" do
+      html = response_body(env)
+
+      expect(html).to match(/\} else \{\s*banner\(\)\.classList\.add\('newshound-banner-minimized'\);/)
+    end
+
+    it "reads the signature before any control can detach the banner" do
+      html = response_body(env)
+
+      read_at = html.index("var signature = banner().getAttribute")
+
+      expect(read_at).to be < html.index("el.remove();")
+      expect(read_at).to be < html.index("if (wasMinimized())")
+    end
+
+    context "when position is :bottom" do
+      before { configuration.position = :bottom }
+
+      it "renders the same signature" do
+        expect(signature(response_body(env))).to eq("1,0,0|42|")
+      end
+    end
+  end
+
+  describe "banner controls" do
+    before do
+      allow_any_instance_of(Newshound::ExceptionReporter).to receive(:banner_data).and_return(
+        exceptions: [{title: "RuntimeError", message: "boom", location: "app.rb:1", time: "12:00 PM"}]
+      )
+    end
+
+    it "renders every control as a real button" do
+      html = response_body(env)
+
+      %w[newshound-toggle newshound-minimize newshound-close newshound-restore].each do |control|
+        expect(html).to match(%r{<button type="button"[^>]*class="[^"]*#{control}})
+      end
+    end
+
+    it "reports the collapsed state on the toggle" do
+      html = response_body(env)
+
+      expect(html).to match(%r{<button[^>]*newshound-toggle[^>]*aria-expanded="false"})
+      expect(html).to include(%(aria-label="Toggle Newshound details"))
+      expect(html).to include("setAttribute('aria-expanded'")
+    end
+
+    it "gives focused controls a visible outline" do
+      html = response_body(env)
+
+      expect(html).to include(".newshound-control:focus-visible")
+    end
+
+    it "drives every control from one delegated listener rather than inline onclick" do
+      html = response_body(env)
+
+      expect(html).not_to include("onclick=")
+      expect(html).to include("banner().addEventListener('click'")
+      expect(html).to match(/closest\('\[data-newshound-action\]'\)/)
+    end
+
+    it "hands focus to the control that replaces the one being hidden" do
+      html = response_body(env)
+
+      expect(html).to include("focusControl(el, '.newshound-restore');")
+      expect(html).to include("focusControl(el, '.newshound-minimize');")
     end
   end
 
@@ -456,16 +706,31 @@ RSpec.describe Newshound::Middleware::BannerInjector do
         expect(html).not_to include("setProperty('padding")
       end
 
-      it "keeps the padding hook callable for the header's onclick" do
+      it "keeps the padding hook callable for the delegated click handler" do
         html = response_body(env)
 
         expect(html).to include("window.newshoundUpdatePadding = function() {};")
       end
+
+      it "renders the same minimize, close and restore controls" do
+        html = response_body(env)
+
+        %w[newshound-minimize newshound-close newshound-restore].each do |control|
+          expect(html).to match(%r{<button type="button"[^>]*class="[^"]*#{control}})
+        end
+      end
+
+      it "rounds the minimized pill toward the bottom edge" do
+        html = response_body(env)
+
+        expect(html).to include("--newshound-minimized-corner-radius: 8px 0 0 0;")
+        expect(html).to include("border-radius: var(--newshound-corner-radius);")
+      end
     end
 
-    # Position and state are carried by classes and custom properties on the
-    # elements themselves, so no rule has to walk down from an ancestor to find
-    # what it styles.
+    # Position and state are carried by classes and custom properties on the elements
+    # themselves, so no rule has to walk down from an ancestor to find what it
+    # styles.
     it "styles every element without reaching through the markup" do
       Newshound::Configuration::POSITIONS.each do |position|
         configuration.position = position
@@ -476,9 +741,9 @@ RSpec.describe Newshound::Middleware::BannerInjector do
       end
     end
 
-    # A variant is named for what it modifies -- newshound-content-bottom rather
-    # than newshound-content plus newshound-bottom -- so no rule has to stack
-    # classes to identify its target.
+    # A variant is named for what it modifies -- newshound-content-bottom rather than
+    # newshound-content plus newshound-bottom -- so no rule has to stack classes to
+    # identify its target.
     it "identifies every element by a single class" do
       Newshound::Configuration::POSITIONS.each do |position|
         configuration.position = position

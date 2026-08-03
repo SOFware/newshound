@@ -8,7 +8,7 @@ A Ruby gem that displays real-time exceptions and job statuses in a collapsible 
 - 🔐 **Role-Based Access** - Only visible to authorized users (developers, admins, etc.)
 - 📊 **Que Job Monitoring** - Real-time queue health and job status
 - 🚨 **Exception Tracking** - Recent exceptions from exception-track
-- 🎨 **Collapsible UI** - Clean, non-intrusive banner that expands on click
+- 🎨 **Collapsible UI** - Expand, minimize to a corner pill, or close it out of the way
 - ⚡ **Zero Configuration** - Automatically injects into HTML responses
 - 🔧 **Highly Customizable** - Configure roles and authorization logic
 
@@ -135,8 +135,8 @@ Newshound uses Rails middleware to automatically inject a banner into HTML respo
 1. ✅ Appears automatically on all HTML pages
 2. 🔒 Only visible to users with authorized roles
 3. 📊 Shows real-time data from your exception and job queues
-4. 🎨 Collapses to save space, expands on click
-5. 🚀 No JavaScript dependencies, pure CSS animations
+4. 🎨 Collapses, minimizes, or closes out of the way (see [Banner Controls](#banner-controls))
+5. 🚀 No build step and no framework — it ships its own CSS and JS inline
 
 ## Banner Content
 
@@ -156,6 +156,22 @@ The banner displays:
 - **Expired**: Jobs that ran out of retries
 - **Completed Today**: Successfully finished jobs
 - Color-coded health status
+
+## Banner Controls
+
+The banner header carries three buttons, all keyboard accessible:
+
+| Control | Does |
+| --- | --- |
+| ▼ Toggle details | Expands or collapses the exception and job sections. Clicking anywhere on the header does the same. |
+| − Minimize | Shrinks the banner to a 🐕 pill in the corner. Click the pill to bring the banner back. |
+| × Close | Removes the banner from the current page so you can reach whatever it was covering. |
+
+Closing is a per-page escape hatch, not an opt-out: the next page shows the banner as the minimized pill, so you still get the signal. Minimize and close both persist to `localStorage` under `newshound-minimized`, and restoring from the pill clears it.
+
+Minimizing is not permanent either. Newshound stores a signature of what you were looking at when you minimized — the exception count, the newest exception id, the same two for warnings, and the failed job count — under `newshound-signature`. When any of those numbers is higher on a later page, something has gone wrong that you have not seen, so the banner comes back as the thin bar and the stored flag is dropped. Numbers that only fall — someone worked through the backlog — are not news, and the pill stays put.
+
+There is no setting to make minimize stick. A banner you can silence forever is one that eventually leaves you blind, which is the failure this whole thing exists to prevent. To turn the banner off entirely, set `config.enabled = false` or narrow `authorized_roles`.
 
 ## User Requirements
 
