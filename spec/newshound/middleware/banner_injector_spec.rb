@@ -369,19 +369,21 @@ RSpec.describe Newshound::Middleware::BannerInjector do
     it "includes a minimize button in the header" do
       html = response_body(env)
 
-      expect(html).to include("newshound-minimize")
+      expect(html).to include(%(class="newshound-minimize"))
     end
 
     it "includes minimized state CSS that hides everything except the toggle" do
       html = response_body(env)
 
-      expect(html).to include("newshound-minimized")
+      expect(html).to include(".newshound-banner-minimized {")
+      expect(html).to include("--newshound-header-display: none;")
+      expect(html).to include("--newshound-restore-display: flex;")
     end
 
-    it "sets body padding to 0 when minimized via script" do
+    it "recalculates body padding when minimized via script" do
       html = response_body(env)
 
-      expect(html).to include("newshound-minimized")
+      expect(html).to include("classList.add('newshound-banner-minimized'); localStorage")
       expect(html).to include("newshoundUpdatePadding")
     end
 
@@ -415,9 +417,17 @@ RSpec.describe Newshound::Middleware::BannerInjector do
       html[/<div id="newshound-banner" class="([^"]*)"/, 1].split
     end
 
+    def content_classes(html)
+      html[/<div class="(newshound-content[^"]*)"/, 1].split
+    end
+
     context "by default" do
       it "marks the banner as top-positioned" do
-        expect(banner_classes(response_body(env))).to include("newshound-top")
+        expect(banner_classes(response_body(env))).to include("newshound-banner-top")
+      end
+
+      it "marks the content panel as top-positioned" do
+        expect(content_classes(response_body(env))).to include("newshound-content", "newshound-content-top")
       end
 
       it "reserves space with body padding-top" do
@@ -432,7 +442,11 @@ RSpec.describe Newshound::Middleware::BannerInjector do
       before { configuration.position = :bottom }
 
       it "marks the banner as bottom-positioned" do
-        expect(banner_classes(response_body(env))).to include("newshound-bottom")
+        expect(banner_classes(response_body(env))).to include("newshound-banner-bottom")
+      end
+
+      it "marks the content panel as bottom-positioned" do
+        expect(content_classes(response_body(env))).to include("newshound-content", "newshound-content-bottom")
       end
 
       it "floats over the page without reserving any body padding" do
@@ -447,6 +461,37 @@ RSpec.describe Newshound::Middleware::BannerInjector do
 
         expect(html).to include("window.newshoundUpdatePadding = function() {};")
       end
+    end
+
+    # Position and state are carried by classes and custom properties on the
+    # elements themselves, so no rule has to walk down from an ancestor to find
+    # what it styles.
+    it "styles every element without reaching through the markup" do
+      Newshound::Configuration::POSITIONS.each do |position|
+        configuration.position = position
+        nested = banner_selectors(response_body(env)).grep(/\S\s+\S/)
+
+        expect(nested).to be_empty,
+          "expected flat selectors for position :#{position}, found #{nested.inspect}"
+      end
+    end
+
+    # A variant is named for what it modifies -- newshound-content-bottom rather
+    # than newshound-content plus newshound-bottom -- so no rule has to stack
+    # classes to identify its target.
+    it "identifies every element by a single class" do
+      Newshound::Configuration::POSITIONS.each do |position|
+        configuration.position = position
+        stacked = banner_selectors(response_body(env)).grep(/\.[\w-]+\./)
+
+        expect(stacked).to be_empty,
+          "expected one class per selector for position :#{position}, found #{stacked.inspect}"
+      end
+    end
+
+    def banner_selectors(html)
+      css = html[%r{<style id="newshound-styles">(.*?)</style>}m, 1]
+      css.scan(/^\s*([^{}\n]+?)\s*\{/).flatten.grep(/newshound-/)
     end
   end
 
