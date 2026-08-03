@@ -355,6 +355,52 @@ RSpec.describe Newshound::Middleware::BannerInjector do
     end
   end
 
+  describe "banner position" do
+    before do
+      allow_any_instance_of(Newshound::ExceptionReporter).to receive(:banner_data).and_return(
+        exceptions: [{title: "RuntimeError", message: "boom", location: "app.rb:1", time: "12:00 PM"}]
+      )
+    end
+
+    def banner_classes(html)
+      html[/<div id="newshound-banner" class="([^"]*)"/, 1].split
+    end
+
+    context "by default" do
+      it "marks the banner as top-positioned" do
+        expect(banner_classes(response_body(env))).to include("newshound-top")
+      end
+
+      it "reserves space with body padding-top" do
+        html = response_body(env)
+
+        expect(html).to include("padding-top: 50px;")
+        expect(html).to include("setProperty('padding-top'")
+      end
+    end
+
+    context "when position is :bottom" do
+      before { configuration.position = :bottom }
+
+      it "marks the banner as bottom-positioned" do
+        expect(banner_classes(response_body(env))).to include("newshound-bottom")
+      end
+
+      it "floats over the page without reserving any body padding" do
+        html = response_body(env)
+
+        expect(html).not_to include("html body {")
+        expect(html).not_to include("setProperty('padding")
+      end
+
+      it "keeps the padding hook callable for the header's onclick" do
+        html = response_body(env)
+
+        expect(html).to include("window.newshoundUpdatePadding = function() {};")
+      end
+    end
+  end
+
   describe "HTML safety" do
     before do
       configuration.exception_links = {show: "/errors/:id"}

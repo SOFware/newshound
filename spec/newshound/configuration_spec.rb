@@ -14,6 +14,27 @@ RSpec.describe Newshound::Configuration do
     end
   end
 
+  describe "#position" do
+    it "defaults to :top" do
+      expect(config.position).to eq(:top)
+    end
+
+    it "can be set to :bottom" do
+      config.position = :bottom
+      expect(config.position).to eq(:bottom)
+    end
+
+    it "rejects any other symbol" do
+      expect { config.position = :middle }
+        .to raise_error(ArgumentError, /Invalid position: :middle/)
+    end
+
+    it "rejects a string" do
+      expect { config.position = "bottom" }
+        .to raise_error(ArgumentError, /Invalid position/)
+    end
+  end
+
   describe "link configuration" do
     describe "#exception_links" do
       it "defaults to an empty hash" do

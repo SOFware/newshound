@@ -24,6 +24,11 @@ Newshound.configure do |config|
   # Default is 0 (any failed job triggers the banner)
   # config.failed_jobs_threshold = 0
 
+  # Which viewport edge the banner attaches to, :top or :bottom
+  # Use :bottom to keep the banner clear of fixed headers and sticky navigation
+  # Default is :top
+  # config.position = :bottom
+
   # User roles that are authorized to view the Newshound banner
   # These should match the role values in your User model
   # Default is [:developer, :super_user]

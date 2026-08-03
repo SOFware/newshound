@@ -79,8 +79,8 @@ module Newshound
 
       def render_banner(exception_data, job_data, warning_data = {})
         <<~HTML
-          <div id="newshound-banner" class="newshound-banner newshound-collapsed">
-            #{render_styles}
+          #{render_styles}
+          <div id="newshound-banner" class="newshound-banner newshound-collapsed newshound-#{Newshound.configuration.position}">
             <div class="newshound-header" onclick="document.getElementById('newshound-banner').classList.toggle('newshound-collapsed'); window.newshoundUpdatePadding();">
               <span class="newshound-title">
                 🐕 Newshound
@@ -113,79 +113,86 @@ module Newshound
                 document.getElementById('newshound-banner').classList.add('newshound-minimized');
               }
 
-              var cachedPriority, cachedBodyRule;
+              #{render_padding_script}
+            })();
+          </script>
+        JS
+      end
 
-              // Detect once whether any non-newshound stylesheet uses !important on body padding-top
-              function detectPriority() {
-                var styles = document.querySelectorAll('style:not(#newshound-styles)');
+      # A bottom banner floats over the page, so there is no space to reserve. The
+      # header's onclick still calls this, so it has to exist either way.
+      def render_padding_script
+        return "window.newshoundUpdatePadding = function() {};" if bottom?
 
-                for (var i = 0; i < styles.length; i++) {
-                  if (styles[i].textContent.match(/body\\s*{[^}]*padding-top[^;]*!important/s)) {
+        <<~JS
+          var cachedPriority, cachedBodyRule;
+
+          // Detect once whether any non-newshound stylesheet uses !important on the body padding we set
+          function detectPriority() {
+            var styles = document.querySelectorAll('style:not(#newshound-styles)');
+
+            for (var i = 0; i < styles.length; i++) {
+              if (styles[i].textContent.match(/body\\s*{[^}]*padding-top[^;]*!important/s)) {
+                return 'important';
+              }
+            }
+
+            try {
+              for (var s = 0; s < document.styleSheets.length; s++) {
+                var sheet = document.styleSheets[s];
+                if (sheet.ownerNode && sheet.ownerNode.id === 'newshound-styles') continue;
+                var rules = sheet.cssRules || [];
+                for (var r = 0; r < rules.length; r++) {
+                  if (rules[r].selectorText === 'body' &&
+                      rules[r].style.getPropertyPriority('padding-top') === 'important') {
                     return 'important';
                   }
                 }
-
-                try {
-                  for (var s = 0; s < document.styleSheets.length; s++) {
-                    var sheet = document.styleSheets[s];
-                    if (sheet.ownerNode && sheet.ownerNode.id === 'newshound-styles') continue;
-                    var rules = sheet.cssRules || [];
-                    for (var r = 0; r < rules.length; r++) {
-                      if (rules[r].selectorText === 'body' &&
-                          rules[r].style.getPropertyPriority('padding-top') === 'important') {
-                        return 'important';
-                      }
-                    }
-                  }
-                } catch (e) {}
-
-                return '';
               }
+            } catch (e) {}
 
-              // Find the html body rule in the newshound stylesheet once
-              function findBodyRule() {
-                var styleEl = document.getElementById('newshound-styles');
-                if (!styleEl || !styleEl.sheet) return null;
-                var rules = styleEl.sheet.cssRules;
-                for (var i = 0; i < rules.length; i++) {
-                  if (rules[i].selectorText === 'html body') return rules[i];
-                }
-                return null;
-              }
+            return '';
+          }
 
-              window.newshoundUpdatePadding = function() {
-                setTimeout(function() {
-                  var banner = document.getElementById('newshound-banner');
-                  if (!banner) return;
+          // Find the html body rule in the newshound stylesheet once
+          function findBodyRule() {
+            var styleEl = document.getElementById('newshound-styles');
+            if (!styleEl || !styleEl.sheet) return null;
+            var rules = styleEl.sheet.cssRules;
+            for (var i = 0; i < rules.length; i++) {
+              if (rules[i].selectorText === 'html body') return rules[i];
+            }
+            return null;
+          }
 
-                  if (cachedBodyRule === undefined) cachedBodyRule = findBodyRule();
-                  if (!cachedBodyRule) return;
+          window.newshoundUpdatePadding = function() {
+            setTimeout(function() {
+              var banner = document.getElementById('newshound-banner');
+              if (!banner) return;
 
-                  if (cachedPriority === undefined) cachedPriority = detectPriority();
+              if (cachedBodyRule === undefined) cachedBodyRule = findBodyRule();
+              if (!cachedBodyRule) return;
 
-                  cachedBodyRule.style.setProperty('padding-top', banner.offsetHeight + 'px', cachedPriority);
-                }, 300);
-              };
+              if (cachedPriority === undefined) cachedPriority = detectPriority();
 
-              if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', window.newshoundUpdatePadding);
-              } else {
-                window.newshoundUpdatePadding();
-              }
+              cachedBodyRule.style.setProperty('padding-top', banner.offsetHeight + 'px', cachedPriority);
+            }, 300);
+          };
 
-              window.addEventListener('resize', window.newshoundUpdatePadding);
-            })();
-          </script>
+          if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', window.newshoundUpdatePadding);
+          } else {
+            window.newshoundUpdatePadding();
+          }
+
+          window.addEventListener('resize', window.newshoundUpdatePadding);
         JS
       end
 
       def render_styles
         <<~CSS
           <style id="newshound-styles">
-            html body {
-              padding-top: 50px;
-              transition: padding-top 0.3s ease-out;
-            }
+            #{render_body_padding_styles}
             .newshound-banner {
               position: fixed;
               top: 0;
@@ -354,7 +361,48 @@ module Newshound
               border-radius: 0 0 0 8px;
               box-shadow: -2px 2px 6px rgba(0,0,0,0.2);
             }
+            .newshound-banner.newshound-bottom {
+              top: auto;
+              bottom: 0;
+              display: flex;
+              flex-direction: column-reverse;
+              box-shadow: 0 -2px 10px rgba(0,0,0,0.3);
+            }
+            .newshound-bottom .newshound-content {
+              border-top: none;
+              border-bottom: 1px solid rgba(255,255,255,0.2);
+            }
+            .newshound-bottom.newshound-collapsed .newshound-content,
+            .newshound-bottom.newshound-minimized .newshound-content {
+              border-bottom: none;
+            }
+            .newshound-bottom .newshound-toggle {
+              transform: rotate(180deg);
+            }
+            .newshound-bottom.newshound-collapsed .newshound-toggle {
+              transform: rotate(270deg);
+            }
+            .newshound-bottom.newshound-minimized {
+              border-radius: 8px 0 0 0;
+              box-shadow: -2px -2px 6px rgba(0,0,0,0.2);
+            }
           </style>
+        CSS
+      end
+
+      def bottom?
+        Newshound.configuration.position == :bottom
+      end
+
+      # Only a top banner pushes the page down; a bottom one floats over it.
+      def render_body_padding_styles
+        return "" if bottom?
+
+        <<~CSS
+          html body {
+            padding-top: 50px;
+            transition: padding-top 0.3s ease-out;
+          }
         CSS
       end
 
