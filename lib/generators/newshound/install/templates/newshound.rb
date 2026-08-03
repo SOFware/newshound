@@ -1,21 +1,25 @@
 # frozen_string_literal: true
 
 Newshound.configure do |config|
-  # Enable or disable Newshound completely
-  # When enabled, the banner will be shown to authorized users
-  # Default is true
+  # Enable or disable Newshound completely When enabled, the banner will be shown to
+  # authorized users Default is true
   config.enabled = true
 
-  # Maximum number of exceptions to include in banner
-  # Default is 10
+  # Maximum number of exceptions to include in banner Default is 10
   config.exception_limit = 10
 
   # Exception source to use for exceptions
   # Default is :exception_track
-  config.exception_source = :exception_track # or :solid_errors
+  config.exception_source = :exception_track # or :solid_errors, :bugsink
 
-  # Job source adapter for monitoring background jobs
-  # Uncomment and set to enable job monitoring in the banner
+  # Options passed to the exception source
+  # :solid_errors shows one row per unresolved error, so resolving an error in
+  # your /errors UI clears it from the banner Set unresolved_only: false to list
+  # individual occurrences instead
+  # config.exception_source_config = {unresolved_only: true}
+
+  # Job source adapter for monitoring background jobs Uncomment and set to enable job
+  # monitoring in the banner
   # config.job_source = :que # or a custom adapter instance
   # See Newshound::Jobs::Base for the adapter interface
 
@@ -30,8 +34,8 @@ Newshound.configure do |config|
   # Default is :top
   # config.position = :bottom
 
-  # User roles that are authorized to view the Newshound banner
-  # These should match the role values in your User model
+  # User roles that are authorized to view the Newshound banner These should match
+  # the role values in your User model
   # Default is [:developer, :super_user]
   config.authorized_roles = [:developer, :super_user]
 
@@ -40,8 +44,8 @@ Newshound.configure do |config|
   # Default is :current_user
   config.current_user_method = :current_user
 
-  # Links for banner items
-  # Configure paths so banner items link to your exception/job dashboards.
+  # Links for banner items Configure paths so banner items link to your exception/job
+  # dashboards.
   # Use :id in show paths to interpolate the record ID.
   #
   # config.exception_links = {

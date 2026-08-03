@@ -53,6 +53,37 @@ Newshound.configure do |config|
 end
 ```
 
+### Exception Sources
+
+`config.exception_source` picks where exceptions come from, and `config.exception_source_config` passes options to that source.
+
+| Source | Reads from | Options |
+| --- | --- | --- |
+| `:exception_track` (default) | the `exception-track` gem | none |
+| `:solid_errors` | the `solid_errors` gem | `unresolved_only` |
+| `:bugsink` | the Bugsink API | `url`, `token`, `project_id` (all required) |
+
+```ruby
+Newshound.configure do |config|
+  config.exception_source = :solid_errors
+  config.exception_source_config = {unresolved_only: true}
+end
+```
+
+#### Solid Errors and `unresolved_only`
+
+**`unresolved_only` defaults to `true`, which changes what the banner shows for apps upgrading from 1.0.x.** Older versions listed `SolidErrors::Occurrence` rows, which carry no resolved state, so resolving an error in your `/errors` UI left the banner lit.
+
+With the default, the banner lists one row per unresolved `SolidErrors::Error`:
+
+- Resolving an error removes it from the banner.
+- An error that happened 300 times takes one banner slot instead of 300.
+- The location slot shows the occurrence count — "300 occurrences" — rather than `controller#action`, because request context is recorded per occurrence and an error row has none.
+
+Banner links still point at the error, so `config.exception_links = {show: "/errors/:id"}` resolves the same way in both modes.
+
+Set `unresolved_only: false` to go back to listing individual occurrences.
+
 ### Banner Position
 
 By default the banner is fixed to the top of the viewport, and the page body gets matching top padding so the banner never covers content.
@@ -143,9 +174,9 @@ Newshound uses Rails middleware to automatically inject a banner into HTML respo
 The banner displays:
 
 ### Exception Section
-- Recent exceptions from exception-track
+- Recent exceptions from the configured exception source
 - Exception class and message
-- Controller/action where it occurred
+- Controller/action where it occurred, or the occurrence count (see [Exception Sources](#exception-sources))
 - Timestamp
 - Visual indicators (🟢 all clear / 🔴 errors)
 
@@ -271,7 +302,13 @@ This gem uses [Reissue](https://github.com/SOFware/reissue) for release manageme
 - **que** >= 1.0 (for job monitoring)
 - **exception-track** >= 0.1 (for exception tracking)
 
-## Upgrading from 0.1.x
+## Upgrading
+
+### Resolved errors now drop out of the banner
+
+Apps on `config.exception_source = :solid_errors` get the new `unresolved_only` default of `true` with no config change, so the banner stops showing errors you have resolved and collapses repeat occurrences into one row. See [Solid Errors and `unresolved_only`](#solid-errors-and-unresolved_only) for what the banner looks like either way, and set `unresolved_only: false` to keep the old listing.
+
+### From 0.1.x
 
 If you were using the previous Slack-based version:
 
