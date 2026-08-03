@@ -15,7 +15,7 @@ RSpec.describe Newshound::Jobs::Que do
     context "when the database is accessible" do
       before do
         allow(connection).to receive(:quote).and_return("'mocked_time'")
-        allow(connection).to receive(:select_value).and_return(3, 5, 2, 15)
+        allow(connection).to receive(:select_value).and_return(3, 5, 4, 2, 6, 15)
       end
 
       it "returns queue statistics" do
@@ -24,8 +24,26 @@ RSpec.describe Newshound::Jobs::Que do
         expect(stats).to eq(
           ready: 3,
           scheduled: 5,
-          failed: 2,
+          failing: 4,
+          expired: 2,
+          failed: 6,
           finished_today: 15
+        )
+      end
+
+      it "counts expired jobs on expired_at alone" do
+        adapter.queue_statistics
+
+        expect(connection).to have_received(:select_value).with(
+          "SELECT COUNT(*) FROM que_jobs WHERE expired_at IS NOT NULL"
+        )
+      end
+
+      it "excludes expired jobs from the failing count" do
+        adapter.queue_statistics
+
+        expect(connection).to have_received(:select_value).with(
+          "SELECT COUNT(*) FROM que_jobs WHERE error_count > 0 AND finished_at IS NULL AND expired_at IS NULL"
         )
       end
     end
@@ -40,7 +58,14 @@ RSpec.describe Newshound::Jobs::Que do
 
         stats = adapter.queue_statistics
 
-        expect(stats).to eq(ready: 0, scheduled: 0, failed: 0, finished_today: 0)
+        expect(stats).to eq(
+          ready: 0,
+          scheduled: 0,
+          failing: 0,
+          expired: 0,
+          failed: 0,
+          finished_today: 0
+        )
       end
     end
   end
@@ -49,9 +74,8 @@ RSpec.describe Newshound::Jobs::Que do
     context "when jobs are present" do
       before do
         job_rows = [
-          {"job_class" => "ProcessEmailJob", "error_count" => "0", "count" => "5"},
-          {"job_class" => "ProcessEmailJob", "error_count" => "3", "count" => "2"},
-          {"job_class" => "SendNotificationJob", "error_count" => "0", "count" => "10"}
+          {"job_class" => "ProcessEmailJob", "success" => "5", "failing" => "2", "expired" => "1", "total" => "8"},
+          {"job_class" => "SendNotificationJob", "success" => "10", "failing" => "0", "expired" => "0", "total" => "10"}
         ]
         allow(connection).to receive(:execute).and_return(job_rows)
       end
@@ -60,8 +84,20 @@ RSpec.describe Newshound::Jobs::Que do
         counts = adapter.job_counts_by_type
 
         expect(counts).to eq(
-          "ProcessEmailJob" => {success: 5, failed: 2, total: 7},
-          "SendNotificationJob" => {success: 10, failed: 0, total: 10}
+          "ProcessEmailJob" => {success: 5, failing: 2, expired: 1, failed: 3, total: 8},
+          "SendNotificationJob" => {success: 10, failing: 0, expired: 0, failed: 0, total: 10}
+        )
+      end
+
+      it "buckets each job class into disjoint success, failing, and expired counts" do
+        adapter.job_counts_by_type
+
+        expect(connection).to have_received(:execute).with(
+          a_string_including(
+            "COUNT(*) FILTER (WHERE error_count = 0 AND expired_at IS NULL) AS success",
+            "COUNT(*) FILTER (WHERE error_count > 0 AND expired_at IS NULL) AS failing",
+            "COUNT(*) FILTER (WHERE expired_at IS NOT NULL) AS expired"
+          )
         )
       end
     end
@@ -91,7 +127,7 @@ RSpec.describe Newshound::Jobs::Que do
   describe "#format_for_banner" do
     before do
       allow(connection).to receive(:quote).and_return("'mocked_time'")
-      allow(connection).to receive(:select_value).and_return(3, 5, 2, 15)
+      allow(connection).to receive(:select_value).and_return(3, 5, 4, 2, 6, 15)
     end
 
     it "returns data formatted for the banner" do
@@ -101,7 +137,9 @@ RSpec.describe Newshound::Jobs::Que do
         queue_stats: {
           ready_to_run: 3,
           scheduled: 5,
-          failed: 2,
+          failing: 4,
+          expired: 2,
+          failed: 6,
           completed_today: 15
         }
       )

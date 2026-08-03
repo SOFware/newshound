@@ -42,7 +42,8 @@ module Newshound
           puts "Job Queue Report:"
           puts "  Ready to run: #{stats[:ready_to_run] || 0}"
           puts "  Scheduled: #{stats[:scheduled] || 0}"
-          puts "  Failed: #{stats[:failed] || 0}"
+          puts "  Failing: #{stats[:failing] || 0}"
+          puts "  Expired: #{stats[:expired] || 0}"
           puts "  Completed today: #{stats[:completed_today] || 0}"
         end
       end

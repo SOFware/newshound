@@ -99,7 +99,7 @@ RSpec.describe Newshound::JobReporter do
       before do
         allow(adapter).to receive(:job_counts_by_type).and_return({})
         allow(adapter).to receive(:queue_statistics).and_return(
-          ready: 0, scheduled: 0, failed: 0, finished_today: 0
+          ready: 0, scheduled: 0, failing: 0, expired: 0, failed: 0, finished_today: 0
         )
       end
 
@@ -118,11 +118,11 @@ RSpec.describe Newshound::JobReporter do
     context "when jobs are present" do
       before do
         allow(adapter).to receive(:job_counts_by_type).and_return(
-          "ProcessEmailJob" => {success: 5, failed: 2, total: 7},
-          "SendNotificationJob" => {success: 10, failed: 0, total: 10}
+          "ProcessEmailJob" => {success: 5, failing: 2, expired: 1, failed: 3, total: 8},
+          "SendNotificationJob" => {success: 10, failing: 0, expired: 0, failed: 0, total: 10}
         )
         allow(adapter).to receive(:queue_statistics).and_return(
-          ready: 3, scheduled: 5, failed: 2, finished_today: 15
+          ready: 3, scheduled: 5, failing: 4, expired: 2, failed: 6, finished_today: 15
         )
       end
 
@@ -146,8 +146,53 @@ RSpec.describe Newshound::JobReporter do
         expect(queue_health_text).to include("*Queue Health")
         expect(queue_health_text).to include("*Ready to Run:* 3")
         expect(queue_health_text).to include("*Scheduled:* 5")
-        expect(queue_health_text).to include("*Failed (Retry Queue):* 2")
+        expect(queue_health_text).to include("*Failing (Will Retry):* 4")
+        expect(queue_health_text).to include("*Expired (Out of Retries):* 2")
         expect(queue_health_text).to include("*Completed Today:* 15")
+      end
+
+      it "breaks each job class down into failing and expired counts" do
+        job_counts_text = reporter.generate_report[1][:text][:text]
+
+        expect(job_counts_text).to include(
+          "*ProcessEmailJob*: 8 total (5 success, 2 failing, 1 expired)"
+        )
+      end
+    end
+
+    context "when jobs are failing but none have expired" do
+      before do
+        allow(adapter).to receive(:job_counts_by_type).and_return(
+          "ProcessEmailJob" => {success: 5, failing: 2, expired: 0, failed: 2, total: 7}
+        )
+        allow(adapter).to receive(:queue_statistics).and_return(
+          ready: 3, scheduled: 5, failing: 4, expired: 0, failed: 4, finished_today: 15
+        )
+      end
+
+      it "reports degraded rather than unhealthy" do
+        report = reporter.generate_report
+
+        expect(report[1][:text][:text]).to include("🟡 *ProcessEmailJob*")
+        expect(report[2][:text][:text]).to include("*Queue Health 🟡*")
+      end
+    end
+
+    context "when jobs have expired" do
+      before do
+        allow(adapter).to receive(:job_counts_by_type).and_return(
+          "ProcessEmailJob" => {success: 5, failing: 0, expired: 2, failed: 2, total: 7}
+        )
+        allow(adapter).to receive(:queue_statistics).and_return(
+          ready: 3, scheduled: 5, failing: 0, expired: 2, failed: 2, finished_today: 15
+        )
+      end
+
+      it "reports unhealthy" do
+        report = reporter.generate_report
+
+        expect(report[1][:text][:text]).to include("⚠️ *ProcessEmailJob*")
+        expect(report[2][:text][:text]).to include("*Queue Health 🔴*")
       end
     end
 
@@ -178,7 +223,9 @@ RSpec.describe Newshound::JobReporter do
           queue_stats: {
             ready_to_run: 3,
             scheduled: 5,
-            failed: 2,
+            failing: 4,
+            expired: 2,
+            failed: 6,
             completed_today: 15
           }
         )
@@ -188,7 +235,8 @@ RSpec.describe Newshound::JobReporter do
         data = reporter.banner_data
 
         expect(data[:queue_stats][:ready_to_run]).to eq(3)
-        expect(data[:queue_stats][:failed]).to eq(2)
+        expect(data[:queue_stats][:failing]).to eq(4)
+        expect(data[:queue_stats][:expired]).to eq(2)
       end
     end
   end
