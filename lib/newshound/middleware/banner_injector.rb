@@ -77,18 +77,19 @@ module Newshound
         exception_count > 0 || warning_count > 0 || failed_jobs > threshold
       end
 
+      # The stylesheet is a sibling of the banner so closing can remove the banner
+      # without taking the `html body` padding rule down with it.
       def render_banner(exception_data, job_data, warning_data = {})
         <<~HTML
           #{render_styles}
           <div id="newshound-banner" class="#{positioned_class(:banner)} newshound-banner-collapsed">
-            <div class="newshound-header" onclick="document.getElementById('newshound-banner').classList.toggle('newshound-banner-collapsed'); window.newshoundUpdatePadding();">
+            <div class="newshound-header" data-newshound-action="toggle">
               <span class="newshound-title">
                 🐕 Newshound
                 #{summary_badge(exception_data, job_data, warning_data)}
               </span>
               <span class="newshound-header-controls">
-                <span class="newshound-minimize" onclick="event.stopPropagation(); document.getElementById('newshound-banner').classList.add('newshound-banner-minimized'); localStorage.setItem('newshound-minimized','1'); window.newshoundUpdatePadding();" title="Minimize">−</span>
-                <span class="newshound-toggle">▼</span>
+                #{render_header_controls}
               </span>
             </div>
             <div class="#{positioned_class(:content)}">
@@ -96,11 +97,25 @@ module Newshound
               #{render_warnings(warning_data)}
               #{render_jobs(job_data)}
             </div>
-            <div class="newshound-restore" onclick="document.getElementById('newshound-banner').classList.remove('newshound-banner-minimized'); localStorage.removeItem('newshound-minimized'); window.newshoundUpdatePadding();" title="Restore Newshound">
-              🐕
-            </div>
+            #{render_restore_control}
           </div>
           #{render_script}
+        HTML
+      end
+
+      def render_header_controls
+        <<~HTML
+          <button type="button" class="newshound-control newshound-toggle" data-newshound-action="toggle" aria-expanded="false" aria-label="Toggle Newshound details" title="Toggle details">▼</button>
+          <button type="button" class="newshound-control newshound-minimize" data-newshound-action="minimize" aria-label="Minimize Newshound" title="Minimize to a corner pill">−</button>
+          <button type="button" class="newshound-control newshound-close" data-newshound-action="close" aria-label="Close Newshound" title="Close (returns minimized on the next page)">×</button>
+        HTML
+      end
+
+      # The only way back once the banner is minimized, so it is always rendered and
+      # always focusable.
+      def render_restore_control
+        <<~HTML
+          <button type="button" class="newshound-control newshound-restore" data-newshound-action="restore" aria-label="Restore Newshound" title="Restore Newshound">🐕</button>
         HTML
       end
 
@@ -108,10 +123,35 @@ module Newshound
         <<~JS
           <script>
             (function() {
-              // Restore minimized state from localStorage
-              if (localStorage.getItem('newshound-minimized')) {
-                document.getElementById('newshound-banner').classList.add('newshound-banner-minimized');
+              function banner() {
+                return document.getElementById('newshound-banner');
               }
+
+              // localStorage throws in some private-browsing modes, and a throw here
+              // would leave a control half-applied.
+              function rememberMinimized() {
+                try { localStorage.setItem('newshound-minimized', '1'); } catch (e) {}
+              }
+
+              function forgetMinimized() {
+                try { localStorage.removeItem('newshound-minimized'); } catch (e) {}
+              }
+
+              function wasMinimized() {
+                try {
+                  return localStorage.getItem('newshound-minimized') === '1';
+                } catch (e) {
+                  return false;
+                }
+              }
+
+              // Restored before the padding script below takes its first measurement.
+              if (wasMinimized()) {
+                var stored = banner();
+                if (stored) stored.classList.add('newshound-banner-minimized');
+              }
+
+              #{render_controls_script}
 
               #{render_padding_script}
             })();
@@ -119,8 +159,59 @@ module Newshound
         JS
       end
 
+      def render_controls_script
+        <<~JS
+          var actions = {
+            toggle: function(el) {
+              var expanded = !el.classList.toggle('newshound-banner-collapsed');
+              var toggle = el.querySelector('.newshound-toggle');
+              if (toggle) toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+            },
+            // Minimize and restore each hide the control the keyboard is sitting on,
+            // so each hands focus to the one that replaces it.
+            minimize: function(el) {
+              el.classList.add('newshound-banner-minimized');
+              rememberMinimized();
+              focusControl(el, '.newshound-restore');
+            },
+            restore: function(el) {
+              el.classList.remove('newshound-banner-minimized');
+              forgetMinimized();
+              focusControl(el, '.newshound-minimize');
+            },
+            // Closing clears the current page; the flag brings the banner back as a
+            // pill on the next load rather than suppressing it for good.
+            close: function(el) {
+              el.remove();
+              rememberMinimized();
+            }
+          };
+
+          function focusControl(el, selector) {
+            var control = el.querySelector(selector);
+            if (control) control.focus();
+          }
+
+          // Scoped to the banner so a second injection cannot stack listeners that
+          // outlive it.
+          banner().addEventListener('click', function(event) {
+            if (!event.target.closest) return;
+
+            var trigger = event.target.closest('[data-newshound-action]');
+            if (!trigger) return;
+
+            var action = actions[trigger.getAttribute('data-newshound-action')];
+            var el = banner();
+            if (!action || !el) return;
+
+            action(el);
+            if (window.newshoundUpdatePadding) window.newshoundUpdatePadding();
+          });
+        JS
+      end
+
       # A bottom banner floats over the page, so there is no space to reserve. The
-      # header's onclick still calls this, so it has to exist either way.
+      # delegated click handler still calls this, so it has to exist either way.
       def render_padding_script
         return "window.newshoundUpdatePadding = function() {};" if bottom?
 
@@ -165,18 +256,27 @@ module Newshound
             return null;
           }
 
+          function applyPadding(offset) {
+            if (cachedBodyRule === undefined) cachedBodyRule = findBodyRule();
+            if (!cachedBodyRule) return;
+
+            if (cachedPriority === undefined) cachedPriority = detectPriority();
+
+            cachedBodyRule.style.setProperty('padding-top', offset + 'px', cachedPriority);
+          }
+
           window.newshoundUpdatePadding = function() {
-            setTimeout(function() {
-              var banner = document.getElementById('newshound-banner');
-              if (!banner) return;
+            var el = banner();
 
-              if (cachedBodyRule === undefined) cachedBodyRule = findBodyRule();
-              if (!cachedBodyRule) return;
+            // A closed banner is gone and a minimized one is a floating corner pill,
+            // so neither displaces the page.
+            if (!el || el.classList.contains('newshound-banner-minimized')) {
+              applyPadding(0);
+              return;
+            }
 
-              if (cachedPriority === undefined) cachedPriority = detectPriority();
-
-              cachedBodyRule.style.setProperty('padding-top', banner.offsetHeight + 'px', cachedPriority);
-            }, 300);
+            // Measure only once the content's max-height transition has settled.
+            setTimeout(function() { applyPadding(el.offsetHeight); }, 300);
           };
 
           if (document.readyState === 'loading') {
@@ -197,6 +297,7 @@ module Newshound
                on the banner. The rules below inherit those values, so each element
                is styled by its own flat selector instead of by its ancestry. */
             .newshound-banner {
+              --newshound-content-display: block;
               --newshound-content-max-height: 400px;
               --newshound-content-overflow: auto;
               --newshound-divider: 1px solid rgba(255,255,255,0.2);
@@ -242,9 +343,10 @@ module Newshound
               --newshound-toggle-rotation: var(--newshound-collapsed-toggle-rotation);
             }
             .newshound-banner-minimized {
-              --newshound-content-max-height: 0px;
-              --newshound-content-overflow: hidden;
-              --newshound-divider: none;
+              /* Taken out of layout rather than collapsed to zero height: a
+                 shrink-to-fit banner otherwise sizes itself to the hidden
+                 content's width. */
+              --newshound-content-display: none;
               --newshound-header-display: none;
               --newshound-restore-display: flex;
               --newshound-shadow: var(--newshound-minimized-shadow);
@@ -287,6 +389,7 @@ module Newshound
               transform: rotate(var(--newshound-toggle-rotation, 0deg));
             }
             .newshound-content {
+              display: var(--newshound-content-display, block);
               max-height: var(--newshound-content-max-height, 400px);
               overflow: var(--newshound-content-overflow, auto);
               transition: max-height 0.3s ease-out;
@@ -370,16 +473,29 @@ module Newshound
               align-items: center;
               gap: 12px;
             }
-            .newshound-minimize {
+            .newshound-control {
+              background: none;
+              border: 0;
+              margin: 0;
+              padding: 0 4px;
+              color: inherit;
+              font: inherit;
+              line-height: 1;
               cursor: pointer;
+              opacity: 0.7;
+            }
+            .newshound-control:hover,
+            .newshound-control:focus-visible {
+              opacity: 1;
+            }
+            .newshound-control:focus-visible {
+              outline: 2px solid #fff;
+              outline-offset: 2px;
+            }
+            .newshound-minimize,
+            .newshound-close {
               font-size: 18px;
               font-weight: 700;
-              line-height: 1;
-              opacity: 0.7;
-              padding: 0 4px;
-            }
-            .newshound-minimize:hover {
-              opacity: 1;
             }
             .newshound-restore {
               display: var(--newshound-restore-display, none);
@@ -387,7 +503,8 @@ module Newshound
               justify-content: center;
               width: 36px;
               height: 36px;
-              cursor: pointer;
+              padding: 0;
+              opacity: 1;
               font-size: 16px;
               user-select: none;
             }

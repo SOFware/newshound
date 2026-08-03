@@ -320,7 +320,7 @@ RSpec.describe Newshound::Middleware::BannerInjector do
     it "includes a minimize button in the header" do
       html = response_body(env)
 
-      expect(html).to include(%(class="newshound-minimize"))
+      expect(html).to include(%(class="newshound-control newshound-minimize"))
     end
 
     it "includes minimized state CSS that hides everything except the toggle" do
@@ -334,8 +334,8 @@ RSpec.describe Newshound::Middleware::BannerInjector do
     it "recalculates body padding when minimized via script" do
       html = response_body(env)
 
-      expect(html).to include("classList.add('newshound-banner-minimized'); localStorage")
-      expect(html).to include("newshoundUpdatePadding")
+      expect(html).to include("el.classList.add('newshound-banner-minimized');")
+      expect(html).to include("window.newshoundUpdatePadding();")
     end
 
     it "persists minimized state to localStorage" do
@@ -354,6 +354,135 @@ RSpec.describe Newshound::Middleware::BannerInjector do
       html = response_body(env)
 
       expect(html).to include("localStorage.removeItem('newshound-minimized')")
+    end
+
+    it "renders the minimize control as a button with an accessible name" do
+      html = response_body(env)
+
+      expect(html).to match(%r{<button[^>]*class="[^"]*newshound-minimize})
+      expect(html).to include(%(aria-label="Minimize Newshound"))
+      expect(html).to include(%(title="Minimize to a corner pill"))
+    end
+
+    it "reserves no body padding while minimized rather than measuring the pill" do
+      html = response_body(env)
+
+      expect(html).to include("classList.contains('newshound-banner-minimized')")
+      expect(html).to include("applyPadding(0)")
+    end
+
+    it "takes the header and content out of layout when minimized" do
+      html = response_body(env)
+      rule = html[/\.newshound-banner-minimized \{.*?\}/m]
+
+      expect(rule).to include("--newshound-content-display: none;")
+      expect(rule).to include("--newshound-header-display: none;")
+      expect(html).to include("display: var(--newshound-content-display, block);")
+    end
+
+    it "renders the restore control as a button with an accessible name" do
+      html = response_body(env)
+
+      expect(html).to match(%r{<button[^>]*class="[^"]*newshound-restore})
+      expect(html).to include(%(aria-label="Restore Newshound"))
+    end
+
+    it "applies the stored state before the padding script measures" do
+      html = response_body(env)
+
+      expect(html.index("if (wasMinimized())")).to be < html.index("newshoundUpdatePadding =")
+    end
+  end
+
+  describe "close" do
+    before do
+      allow_any_instance_of(Newshound::ExceptionReporter).to receive(:banner_data).and_return(
+        exceptions: [{title: "RuntimeError", message: "boom", location: "app.rb:1", time: "12:00 PM"}]
+      )
+    end
+
+    it "renders a close button with an accessible name and a title" do
+      html = response_body(env)
+
+      expect(html).to match(%r{<button[^>]*class="[^"]*newshound-close})
+      expect(html).to include(%(aria-label="Close Newshound"))
+      expect(html).to include(%(title="Close (returns minimized on the next page)"))
+    end
+
+    it "removes the banner from the DOM" do
+      html = response_body(env)
+
+      expect(html).to match(/close: function\(el\) \{\s*el\.remove\(\);/)
+    end
+
+    it "persists the minimized flag so the next page shows the pill" do
+      html = response_body(env)
+
+      expect(html).to match(/close: function\(el\) \{[^}]*rememberMinimized\(\);/m)
+      expect(html).to include("localStorage.setItem('newshound-minimized', '1')")
+    end
+
+    it "renders the stylesheet outside the banner so closing keeps the styles" do
+      html = response_body(env)
+
+      styles_at = html.index(%(<style id="newshound-styles">))
+      banner_at = html.index(%(<div id="newshound-banner"))
+
+      expect(styles_at).to be < banner_at
+      expect(html.index("</style>")).to be < banner_at
+    end
+
+    it "never persists a state that hides the banner without a restore control" do
+      html = response_body(env)
+
+      expect(html).to include("localStorage.setItem('newshound-minimized'")
+      expect(html).not_to include("localStorage.setItem('newshound-closed'")
+      expect(html).not_to include("localStorage.setItem('newshound-dismissed'")
+    end
+  end
+
+  describe "banner controls" do
+    before do
+      allow_any_instance_of(Newshound::ExceptionReporter).to receive(:banner_data).and_return(
+        exceptions: [{title: "RuntimeError", message: "boom", location: "app.rb:1", time: "12:00 PM"}]
+      )
+    end
+
+    it "renders every control as a real button" do
+      html = response_body(env)
+
+      %w[newshound-toggle newshound-minimize newshound-close newshound-restore].each do |control|
+        expect(html).to match(%r{<button type="button"[^>]*class="[^"]*#{control}})
+      end
+    end
+
+    it "reports the collapsed state on the toggle" do
+      html = response_body(env)
+
+      expect(html).to match(%r{<button[^>]*newshound-toggle[^>]*aria-expanded="false"})
+      expect(html).to include(%(aria-label="Toggle Newshound details"))
+      expect(html).to include("setAttribute('aria-expanded'")
+    end
+
+    it "gives focused controls a visible outline" do
+      html = response_body(env)
+
+      expect(html).to include(".newshound-control:focus-visible")
+    end
+
+    it "drives every control from one delegated listener rather than inline onclick" do
+      html = response_body(env)
+
+      expect(html).not_to include("onclick=")
+      expect(html).to include("banner().addEventListener('click'")
+      expect(html).to match(/closest\('\[data-newshound-action\]'\)/)
+    end
+
+    it "hands focus to the control that replaces the one being hidden" do
+      html = response_body(env)
+
+      expect(html).to include("focusControl(el, '.newshound-restore');")
+      expect(html).to include("focusControl(el, '.newshound-minimize');")
     end
   end
 
@@ -407,10 +536,25 @@ RSpec.describe Newshound::Middleware::BannerInjector do
         expect(html).not_to include("setProperty('padding")
       end
 
-      it "keeps the padding hook callable for the header's onclick" do
+      it "keeps the padding hook callable for the delegated click handler" do
         html = response_body(env)
 
         expect(html).to include("window.newshoundUpdatePadding = function() {};")
+      end
+
+      it "renders the same minimize, close and restore controls" do
+        html = response_body(env)
+
+        %w[newshound-minimize newshound-close newshound-restore].each do |control|
+          expect(html).to match(%r{<button type="button"[^>]*class="[^"]*#{control}})
+        end
+      end
+
+      it "rounds the minimized pill toward the bottom edge" do
+        html = response_body(env)
+
+        expect(html).to include("--newshound-minimized-corner-radius: 8px 0 0 0;")
+        expect(html).to include("border-radius: var(--newshound-corner-radius);")
       end
     end
 
