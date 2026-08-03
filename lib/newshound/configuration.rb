@@ -2,12 +2,16 @@
 
 module Newshound
   class Configuration
+    POSITIONS = %i[top bottom].freeze
+
     attr_accessor :exception_limit, :enabled, :authorized_roles,
       :current_user_method, :authorization_block, :exception_source,
       :exception_source_config,
       :warning_source, :warning_limit, :job_source,
       :failed_jobs_threshold,
       :exception_links, :job_links, :warning_links
+
+    attr_reader :position
 
     def initialize
       @exception_limit = 10
@@ -24,6 +28,17 @@ module Newshound
       @exception_links = {}
       @job_links = {}
       @warning_links = {}
+      @position = :top
+    end
+
+    # Which viewport edge the banner attaches to, :top or :bottom
+    def position=(value)
+      unless POSITIONS.include?(value)
+        raise ArgumentError,
+          "Invalid position: #{value.inspect}. Must be :top or :bottom"
+      end
+
+      @position = value
     end
 
     # Allow custom authorization logic

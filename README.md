@@ -4,7 +4,7 @@ A Ruby gem that displays real-time exceptions and job statuses in a collapsible 
 
 ## Features
 
-- 🎯 **Real-time Web UI Banner** - Shows exceptions and job statuses at the top of every page
+- 🎯 **Real-time Web UI Banner** - Shows exceptions and job statuses at the top or bottom of every page
 - 🔐 **Role-Based Access** - Only visible to authorized users (developers, admins, etc.)
 - 📊 **Que Job Monitoring** - Real-time queue health and job status
 - 🚨 **Exception Tracking** - Recent exceptions from exception-track
@@ -42,6 +42,9 @@ Newshound.configure do |config|
   # Maximum number of exceptions to show in banner
   config.exception_limit = 10
 
+  # Which viewport edge the banner attaches to (:top or :bottom)
+  config.position = :top
+
   # User roles that can view the banner
   config.authorized_roles = [:developer, :super_user]
 
@@ -49,6 +52,22 @@ Newshound.configure do |config|
   config.current_user_method = :current_user
 end
 ```
+
+### Banner Position
+
+By default the banner is fixed to the top of the viewport, and the page body gets matching top padding so the banner never covers content.
+
+Set `config.position = :bottom` to move it to the bottom edge. A bottom banner floats over the page and reserves no space at all — nothing shifts, and the panel expands upward when you click the header. It does overlap whatever sits at the very bottom of the page, which is the tradeoff for leaving layout untouched.
+
+Bottom placement suits apps with their own fixed header or sticky navigation, where a top banner would overlay the nav or throw off scroll-position calculations.
+
+```ruby
+Newshound.configure do |config|
+  config.position = :bottom
+end
+```
+
+Any value other than `:top` or `:bottom` raises an `ArgumentError`.
 
 ### Advanced: Custom Authorization
 
