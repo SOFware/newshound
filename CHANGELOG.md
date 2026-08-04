@@ -5,6 +5,8 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - Unreleased
+
 ## [1.1.0] - 2026-08-04
 
 ### Added
@@ -26,13 +28,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Resolved errors no longer appear in the banner (b80e8c9)
 - Repeat occurrences of one error collapse to a single row (b80e8c9)
 - Minimizing no longer hides the banner from genuinely new problems (57dbdf5)
-
-## [1.0.3] - 2026-04-21
-
-### Added
-
-- failed_jobs_threshold configuration option (0caac13)
-
-### Changed
-
-- Skip banner injection when there is nothing notable to display (0caac13)
